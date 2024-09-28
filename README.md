@@ -1,5 +1,7 @@
 # CryptoCat: ComfyUI Compression and Encryption Node
 
+[阅读中文版 README](CHINESE_README.md)
+
 ## Introduction
 CryptoCat is a lightweight open-source node for ComfyUI, designed to simplify workflows while providing encryption protection for them.
 ![image](docs/image1.png)
