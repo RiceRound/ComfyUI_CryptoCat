@@ -16,7 +16,7 @@ CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作�
 3. InputCrypto节点用于压缩工作流，连线运行之后会在目录下得到压缩后的工作流
 4. OutputCrypto节点不用管，它只是用于自动解压工作流
 5. RandomSeedNode会在服务端生成随机数，用于修补工作流封装后随机数不起效的情况
-
+你可以在这里看到一个简单的[workflow demo](demo/demo.json)
 
 ## 贡献指南
 欢迎对CryptoCat项目做出贡献！你可以通过提交Pull Request或开设Issue来提出新功能建议或报告问题。
@@ -25,7 +25,7 @@ CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作�
 本项目遵循MIT许可证。有关详细信息，请参阅LICENSE文件。
 
 ## 联系方式
-Email：hzxhzx321@gmail.com
+Email：<hzxhzx321@gmail.com>
 
 ![image](docs/wechat.jpg)
 

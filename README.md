@@ -16,6 +16,7 @@ CryptoCat is a lightweight open-source node for ComfyUI, designed to simplify wo
 3. The InputCrypto node is used to compress the workflow, and after connecting and running it, you will get the compressed workflow in the directory.
 4. You don't need to worry about the OutputCrypto node, it just automatically decompresses the workflow.
 5. The RandomSeedNode generates random numbers on the server side to fix issues where the random numbers don't work after the workflow is packaged.
+You can see a simple [workflow demo](demo/workflow.py) for reference:
 
 ## Contribution Guide
 Contributions to the CryptoCat project are welcome! You can submit Pull Requests or open Issues to propose new features or report bugs.
