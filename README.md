@@ -24,7 +24,9 @@ Contributions to the CryptoCat project are welcome! You can submit Pull Requests
 This project is licensed under the MIT License. For more details, please refer to the LICENSE file.
 
 ## Contact
-hzxhzx321@gmail.com
+Email：hzxhzx321@gmail.com
+
+![image](docs/wechat.jpg)
 
 ---
 CryptoCat © 2024. All Rights Reserved.
