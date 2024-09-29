@@ -3,6 +3,7 @@
 
 ## 简介
 CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作流，同时给工作流提供加密保护。
+
 ![image](docs/image1.png)
 
 ## 应用场景
@@ -22,6 +23,11 @@ CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作�
 
 ## 许可证
 本项目遵循MIT许可证。有关详细信息，请参阅LICENSE文件。
+
+## 联系方式
+Email：hzxhzx321@gmail.com
+
+![image](docs/wechat.jpg)
 
 ---
 CryptoCat © 2024. All Rights Reserved.
