@@ -124,12 +124,12 @@ class WorkflowTrim():
         if not execute_node:
             raise ValueError("No 'ExcuteCryptoNode' instance found.")        
 
-        # 创建新的 SaveImage 节点
+        # 创建新的 CryptoCatImage 节点
         execute_node_pos = execute_node['pos']
         self.max_id_index = max(max(nodes_dict.keys()) + 1, self.max_id_index)
         new_save_image_node = {
             "id": self.max_id_index,  # 新节点 ID，确保唯一
-            "type": "SaveImage",
+            "type": "CryptoCatImage",
             "pos": {
                 "0": execute_node_pos['0'] + 200,  # 设置位置在 ExcuteCryptoNode 右边 20 像素
                 "1": execute_node_pos['1'] 
@@ -151,7 +151,7 @@ class WorkflowTrim():
             ],
             "outputs": [],  # 新节点没有输出
             "properties": {
-                "Node name for S&R": "SaveImage"
+                "Node name for S&R": "CryptoCatImage"
             }
         }
         # 将新节点添加到节点列表
@@ -271,7 +271,7 @@ class PromptTrim():
         output_images_ids = inject_json['output_images_ids'] 
         inject_json.pop('output_images_ids', None)
         for node_id, node in list(self.prompt.items()):
-            if node.get('class_type') == 'SaveImage':
+            if node.get('class_type') == 'CryptoCatImage':
                 ids = node['inputs']['images'] #input_images
                 if excute_crypto_id in ids:
                     node['inputs']['images'] = output_images_ids   

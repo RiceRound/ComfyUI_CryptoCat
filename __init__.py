@@ -1,19 +1,21 @@
 from functools import wraps
 import json
 from .trim_workflow import PromptTrim
-from .crypto_node import SaveCryptoNode, ExcuteCryptoNode, RandomSeedNode
+from .crypto_node import SaveCryptoNode, ExcuteCryptoNode, RandomSeedNode,CryptoCatImage
 
 NODE_CLASS_MAPPINGS = {
     "SaveCryptoNode": SaveCryptoNode,
     "ExcuteCryptoNode": ExcuteCryptoNode,
-    "RandomSeedNode": RandomSeedNode
+    "RandomSeedNode": RandomSeedNode,
+    "CryptoCatImage":CryptoCatImage,
 }
  
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SaveCryptoNode": "InputCrypto",
     "ExcuteCryptoNode": "OutputCrypto",
-    "RandomSeedNode": "RandomSeedNode"
+    "RandomSeedNode": "RandomSeedNode",
+    "CryptoCatImage":"CryptoCatImage",
 }
 
 WEB_DIRECTORY = "./js"

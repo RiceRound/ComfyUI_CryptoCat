@@ -2,6 +2,8 @@ import json
 import os
 import random
 import torch
+
+from nodes import SaveImage
 from .trim_workflow import PromptTrim, WorkflowTrim
 from.file_compressor import FileCompressor
 import folder_paths
@@ -155,3 +157,31 @@ class RandomSeedNode():
     def random(self):
         # 产生随机数
         return (random.randint(0, 999999), )
+    
+
+class CryptoCatImage(SaveImage):
+    def __init__(self):
+        super().__init__()
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "images": ("IMAGE", {"tooltip": "The images to save."}),
+                "filename_prefix": ("STRING", {"default": "ComfyUI", "tooltip": "The prefix for the file to save. This may include formatting information such as %date:yyyy-MM-dd% or %Empty Latent Image.width% to include values from nodes."})
+            },
+            "hidden": {
+                "prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"
+            },
+        }
+
+    RETURN_TYPES = ()
+    FUNCTION = "save_images"
+
+    OUTPUT_NODE = True
+
+    CATEGORY = "advanced/CryptoCat"
+    DESCRIPTION = "Saves the input images to your ComfyUI output directory."
+
+    def save_images(self, images, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
+        return super().save_images(images, filename_prefix, None, None)
