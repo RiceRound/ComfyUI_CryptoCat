@@ -1,0 +1,15 @@
+[project]
+name = "comfyui_cryptocat"
+description = "a lightweight open-source node for ComfyUI, designed to simplify workflows while providing encryption protection for them."
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["torch", "aiohttp"]
+
+[project.urls]
+Repository = "https://github.com/RiceRound/ComfyUI_CryptoCat"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "ComfyUI_CryptoCat"
+Icon = ""
