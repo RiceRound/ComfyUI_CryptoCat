@@ -2,6 +2,12 @@
 
 [阅读中文版 README](CHINESE_README.md)
 
+I sincerely apologize for delaying the fix for this simple bug for three weeks, as I have been busy working on a new encryption project. Although I had a more elegant solution in mind to eliminate the dependence on two dat files, I ultimately gave it up due to compatibility concerns.
+
+However, the issue has been resolved now. While the solution may not be the most ideal, it works fine within the current compatibility requirements.
+
+Due to the limitations of Python as a scripting language, the encryption strength of this solution is somewhat limited. I don't plan to invest too much effort into further improving it. If you're interested in encryption projects, feel free to follow my new project: [ComfyUI_RiceRound](https://github.com/RiceRound/ComfyUI_RiceRound).
+
 ## Introduction
 CryptoCat is a lightweight open-source node for ComfyUI, designed to simplify workflows while providing encryption protection for them.
 ![image](docs/image1.png)
@@ -27,7 +33,7 @@ Contributions to the CryptoCat project are welcome! You can submit Pull Requests
 This project is licensed under the MIT License. For more details, please refer to the LICENSE file.
 
 ## Contact
-Email：hzxhzx321@gmail.com
+Email：<hzxhzx321@gmail.com>
 
 ![image](docs/wechat.jpg)
 

@@ -130,10 +130,6 @@ class WorkflowTrim():
         new_save_image_node = {
             "id": self.max_id_index,  # 新节点 ID，确保唯一
             "type": "CryptoCatImage",
-            "pos": {
-                "0": execute_node_pos['0'] + 200,  # 设置位置在 ExcuteCryptoNode 右边 20 像素
-                "1": execute_node_pos['1'] 
-            },
             "size": {
                 "0": 210,
                 "1": 162
