@@ -34,7 +34,7 @@ CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作�
   ## ⚠️易错强调
 
 
- ![image](docs/image1.png)
+ ![image](docs/warn.png)
 
 > ⚠️加密组件和加密结束桥接一头一尾！
 
