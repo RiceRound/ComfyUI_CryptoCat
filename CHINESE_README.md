@@ -1,13 +1,6 @@
+[Read English](ENGLISH_README.md)
 
 # CryptoCat: ComfyUI压缩加密节点
-
-非常抱歉，由于我一直忙于赶工新的加密项目，这个简单的 bug 我拖了三周才修复。尽管我本来有一个更优雅的方案来摆脱对两个 dat 文件的依赖，但考虑到兼容性问题，最终还是放弃了这个方案。
-
-不过，问题已经解决了。虽然没有采用最理想的方法，但在现有的兼容性要求下，修复方案已经能够正常工作。
-
-受限于 Python 本身的脚本语言特性，这个方案的加密强度有限，我不打算投入太多的精力进一步完善它。如果你对加密项目有兴趣，可以关注我的新项目：[ComfyUI_RiceRound](https://github.com/RiceRound/ComfyUI_RiceRound).
-
-
 
 ## 简介
 CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作流，同时给工作流提供加密保护。
@@ -19,13 +12,25 @@ CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作�
 - 加密授权：可以保护工作流里的一些核心思路。
 
 ## 快速开始
-你可以在这里看到一个简单的 [Workflow Demo](demo/demo.json)
+你可以在这里看到一个简单的 [Workflow Demo](demo/original.json)
 
-1. 打开ComfyUI\custom_ Nodes\目录，克隆仓库到本地。
-2. 启动ComfyUI，菜单“高级”（advance）中找到CryptoCat目录。
-3. InputCrypto节点用于压缩工作流，连线运行之后会在目录下得到压缩后的工作流
-4. OutputCrypto节点不用管，它只是用于自动解压工作流
-5. RandomSeedNode会在服务端生成随机数，用于修补工作流封装后随机数不起效的情况
+### 安装和使用步骤
+1. **安装节点**
+   - 打开 ComfyUI\custom_Nodes\ 目录，克隆仓库到本地
+   - 或在 ComfyUI-Manager 中安装 ComfyUI Compression and Encryption Node 节点
+
+2. **启动和配置**
+   - 启动 ComfyUI
+   - 在菜单"高级"（advance）中找到 CryptoCat 目录
+
+3. **🔐使用方法**
+   - 加密组件和加密结束桥接一头一尾，控制工作流的加密区间
+   - 随机种子会在服务端生成随机数，用于修补工作流封装后随机数不起效的情况
+
+
+> ⚠️ 解密组件无需手动添加 - 加密后系统会在output文件夹自动生成包含解密组件的工作流
+> 
+> ⚠️ 加密时会自动生成10组序列号，用户首次使用时会与硬件信息绑定，后续使用时会验证序列号与硬件信息的一致性
 
   
 

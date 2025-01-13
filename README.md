@@ -1,38 +1,46 @@
-# CryptoCat: ComfyUI Compression and Encryption Node
+[Read English](ENGLISH_README.md)
 
-[阅读中文版 README](CHINESE_README.md)
+# CryptoCat: ComfyUI压缩加密节点
 
-I sincerely apologize for delaying the fix for this simple bug for three weeks, as I have been busy working on a new encryption project. Although I had a more elegant solution in mind to eliminate the dependence on two dat files, I ultimately gave it up due to compatibility concerns.
+## 简介
+CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作流，同时给工作流提供加密保护。
 
-However, the issue has been resolved now. While the solution may not be the most ideal, it works fine within the current compatibility requirements.
-
-Due to the limitations of Python as a scripting language, the encryption strength of this solution is somewhat limited. I don't plan to invest too much effort into further improving it. If you're interested in encryption projects, feel free to follow my new project: [ComfyUI_RiceRound](https://github.com/RiceRound/ComfyUI_RiceRound).
-
-## Introduction
-CryptoCat is a lightweight open-source node for ComfyUI, designed to simplify workflows while providing encryption protection for them.
 ![image](docs/image1.png)
 
-## Use Cases
-- Workflow Simplification: It can greatly simplify workflows.
-- Encryption Authorization: It can protect core ideas within the workflow.
+## 应用场景
+- 流程简化：可以大幅度简化工作流。
+- 加密授权：可以保护工作流里的一些核心思路。
 
-## Quick Start
-You can see a simple [workflow demo](demo/demo.json) for reference:
+## 快速开始
+你可以在这里看到一个简单的 [Workflow Demo](demo/original.json)
 
-1. Open the ComfyUI\custom_Nodes\ directory and clone the repository locally.
-2. Start ComfyUI, and find the CryptoCat directory in the "Advanced" menu.
-3. The InputCrypto node is used to compress the workflow, and after connecting and running it, you will get the compressed workflow in the directory.
-4. You don't need to worry about the OutputCrypto node, it just automatically decompresses the workflow.
-5. The RandomSeedNode generates random numbers on the server side to fix issues where the random numbers don't work after the workflow is packaged.
+### 安装和使用步骤
+1. **安装节点**
+   - 打开 ComfyUI\custom_Nodes\ 目录，克隆仓库到本地
+   - 或在 ComfyUI-Manager 中安装 ComfyUI Compression and Encryption Node 节点
+
+2. **启动和配置**
+   - 启动 ComfyUI
+   - 在菜单"高级"（advance）中找到 CryptoCat 目录
+
+3. **🔐使用方法**
+   - 加密组件和加密结束桥接一头一尾，控制工作流的加密区间
+   - 随机种子会在服务端生成随机数，用于修补工作流封装后随机数不起效的情况
 
 
-## Contribution Guide
-Contributions to the CryptoCat project are welcome! You can submit Pull Requests or open Issues to propose new features or report bugs.
+> ⚠️ 解密组件无需手动添加 - 加密后系统会在output文件夹自动生成包含解密组件的工作流
+> 
+> ⚠️ 加密时会自动生成10组序列号，用户首次使用时会与硬件信息绑定，后续使用时会验证序列号与硬件信息的一致性
 
-## License
-This project is licensed under the MIT License. For more details, please refer to the LICENSE file.
+  
 
-## Contact
+## 贡献指南
+欢迎对CryptoCat项目做出贡献！你可以通过提交Pull Request或开设Issue来提出新功能建议或报告问题。
+
+## 许可证
+本项目遵循MIT许可证。有关详细信息，请参阅LICENSE文件。
+
+## 联系方式
 Email：<hzxhzx321@gmail.com>
 
 ![image](docs/wechat.jpg)
