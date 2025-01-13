@@ -1,0 +1,642 @@
+{
+  "last_node_id": 17,
+  "last_link_id": 21,
+  "nodes": [
+    {
+      "id": 3,
+      "type": "KSampler",
+      "pos": [
+        863,
+        186
+      ],
+      "size": [
+        315,
+        446
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1,
+          "label": "模型"
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 4,
+          "label": "正面条件"
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 6,
+          "label": "负面条件"
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 2,
+          "label": "Latent"
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "link": 11,
+          "widget": {
+            "name": "seed"
+          },
+          "label": "随机种"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            7
+          ],
+          "slot_index": 0,
+          "label": "Latent"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        665777626286280,
+        "randomize",
+        20,
+        8,
+        "euler",
+        "normal",
+        1
+      ]
+    },
+    {
+      "id": 4,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        -476,
+        301
+      ],
+      "size": [
+        315,
+        98
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1,
+            13,
+            21
+          ],
+          "slot_index": 0,
+          "label": "模型"
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            3,
+            5,
+            16
+          ],
+          "slot_index": 1,
+          "label": "CLIP"
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            8,
+            17
+          ],
+          "slot_index": 2,
+          "label": "VAE"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CheckpointLoaderSimple"
+      },
+      "widgets_values": [
+        "1.5\\majicmixRealistic_v7.safetensors"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "EmptyLatentImage",
+      "pos": [
+        473,
+        609
+      ],
+      "size": [
+        315,
+        106
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            2
+          ],
+          "slot_index": 0,
+          "label": "Latent"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "widgets_values": [
+        512,
+        512,
+        1
+      ]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [
+        168,
+        200
+      ],
+      "size": [
+        422.84503173828125,
+        164.31304931640625
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 3,
+          "label": "CLIP"
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 20,
+          "widget": {
+            "name": "text"
+          },
+          "label": "文本"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            4
+          ],
+          "slot_index": 0,
+          "label": "条件"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "beautiful scenery nature glass bottle landscape, , purple galaxy bottle,",
+        true
+      ]
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [
+        413,
+        389
+      ],
+      "size": [
+        425.27801513671875,
+        180.6060791015625
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 5,
+          "label": "CLIP"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            6
+          ],
+          "slot_index": 0,
+          "label": "条件"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "text, watermark",
+        true
+      ]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [
+        1209,
+        188
+      ],
+      "size": [
+        210,
+        46
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 7,
+          "label": "Latent"
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 8,
+          "label": "VAE"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            14
+          ],
+          "slot_index": 0,
+          "label": "图像"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 11,
+      "type": "RandomSeedNode",
+      "pos": [
+        509,
+        64
+      ],
+      "size": [
+        210,
+        26
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            11
+          ],
+          "slot_index": 0,
+          "label": "INT"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "RandomSeedNode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 12,
+      "type": "SaveCryptoNode",
+      "pos": [
+        267,
+        -157
+      ],
+      "size": [
+        400,
+        162
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input_anything",
+          "type": "*",
+          "link": 19,
+          "label": "input_anything",
+          "shape": 7
+        },
+        {
+          "name": "input_anything1",
+          "type": "*",
+          "link": 16,
+          "label": "input_anything1"
+        },
+        {
+          "name": "input_anything2",
+          "type": "*",
+          "link": 17,
+          "label": "input_anything2"
+        },
+        {
+          "name": "input_anything3",
+          "type": "*",
+          "link": 21,
+          "label": "input_anything3"
+        },
+        {
+          "name": "input_anything4",
+          "type": "*",
+          "link": null,
+          "label": "input_anything4"
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveCryptoNode"
+      },
+      "widgets_values": [
+        "ffbb8ad2c5574cdfa702e9b08b0ccaa2",
+        null
+      ]
+    },
+    {
+      "id": 13,
+      "type": "SaveCryptoBridgeNode",
+      "pos": [
+        1467,
+        199
+      ],
+      "size": [
+        189.17031860351562,
+        26
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "value",
+          "type": "*",
+          "link": 14,
+          "label": "value"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "*",
+          "type": "*",
+          "links": [
+            18
+          ],
+          "slot_index": 0,
+          "label": "*"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveCryptoBridgeNode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 14,
+      "type": "PreviewImage",
+      "pos": [
+        1698,
+        158
+      ],
+      "size": [
+        210,
+        246
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 18,
+          "label": "图像"
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 17,
+      "type": "DF_Text",
+      "pos": [
+        -505,
+        20
+      ],
+      "size": [
+        315,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            19,
+            20
+          ],
+          "slot_index": 0,
+          "label": "STRING"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DF_Text"
+      },
+      "widgets_values": [
+        ""
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      4,
+      0,
+      3,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      5,
+      0,
+      3,
+      3,
+      "LATENT"
+    ],
+    [
+      3,
+      4,
+      1,
+      6,
+      0,
+      "CLIP"
+    ],
+    [
+      4,
+      6,
+      0,
+      3,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      5,
+      4,
+      1,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      6,
+      7,
+      0,
+      3,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      7,
+      3,
+      0,
+      8,
+      0,
+      "LATENT"
+    ],
+    [
+      8,
+      4,
+      2,
+      8,
+      1,
+      "VAE"
+    ],
+    [
+      11,
+      11,
+      0,
+      3,
+      4,
+      "INT"
+    ],
+    [
+      13,
+      4,
+      0,
+      12,
+      0,
+      "*"
+    ],
+    [
+      14,
+      8,
+      0,
+      13,
+      0,
+      "*"
+    ],
+    [
+      16,
+      4,
+      1,
+      12,
+      1,
+      "*"
+    ],
+    [
+      17,
+      4,
+      2,
+      12,
+      2,
+      "*"
+    ],
+    [
+      18,
+      13,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      19,
+      17,
+      0,
+      12,
+      0,
+      "*"
+    ],
+    [
+      20,
+      17,
+      0,
+      6,
+      1,
+      "STRING"
+    ],
+    [
+      21,
+      4,
+      0,
+      12,
+      3,
+      "*"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.167184107045001,
+      "offset": [
+        793.6073786214808,
+        404.0759897478937
+      ]
+    }
+  },
+  "version": 0.4
+}

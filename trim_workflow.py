@@ -1,348 +1,336 @@
+from collections import defaultdict
 import copy
 import os
 import random
-import sys
+from .updown_workflow import DownloadWorkflow
 import folder_paths
 import json
-from.file_compressor import FileCompressor
+from .file_compressor import FileCompressor
+from typing import Dict, Any
+from .auth_unit import AuthUnit
 
-class WorkflowTrim():
-    def __init__(self, workflow):
-        if 'workflow' in workflow :
-            self.workflow = copy.deepcopy(workflow['workflow'])
+
+class CryptoWorkflow:
+    def __init__(self, workflow, prompt, template_id):
+        self.workflow = copy.deepcopy(workflow)
+        self.prompt = copy.deepcopy(prompt)
+        self.template_id = template_id
+        self.workflow_nodes_dict = {}
+        self.link_owner_map = defaultdict(dict)
+        self.node_prompt_map = {}
+        self.last_node_id = 0
+        self.last_link_id = 0
+        self.save_crypto_node_id = 0
+        self.crypto_bridge_node_id = 0
+        self.input_nodes_ids = set()
+        self.output_nodes_ids = set()
+        self.crypto_nodes_ids = set()
+        self.crypto_result = {}
+
+    def invalid_workflow(self):
+        for node in self.workflow["nodes"]:
+            node_type = node.get("type", "")
+            if node_type == "SaveCryptoBridgeNode":
+                if self.crypto_bridge_node_id == 0:
+                    self.crypto_bridge_node_id = int(node["id"])
+                else:
+                    raise ValueError(
+                        "Error: Multiple 'SaveCryptoBridgeNode' instances found."
+                    )
+                continue
+            elif node_type == "SaveCryptoNode":
+                if self.save_crypto_node_id == 0:
+                    self.save_crypto_node_id = int(node["id"])
+                else:
+                    raise ValueError(
+                        "Error: Multiple 'SaveCryptoNode' instances found."
+                    )
+                continue
+        if self.save_crypto_node_id == 0:
+            raise ValueError("Error: No 'SaveCryptoNode' instances found.")
+        if self.crypto_bridge_node_id == 0:
+            raise ValueError("Error: No 'SaveCryptoBridgeNode' instances found.")
+
+    def load_workflow(self):
+        simplify_workflow = self.workflow
+        self.workflow_nodes_dict = {
+            int(node["id"]): node for node in simplify_workflow["nodes"]
+        }
+        for node in simplify_workflow["nodes"]:
+            output_nodes = node.get("outputs", [])
+            if not output_nodes:
+                continue
+            for output in output_nodes:
+                links = output.get("links", [])
+                if not links:
+                    continue
+                for link in links:
+                    link = int(link)
+                    self.link_owner_map[link]["links"] = copy.deepcopy(links)
+                    self.link_owner_map[link]["slot_index"] = output.get(
+                        "slot_index", 0
+                    )
+                    self.link_owner_map[link]["owner_id"] = int(node["id"])
+                    self.link_owner_map[link]["type"] = output.get("type", "")
+        self.last_node_id = int(simplify_workflow.get("last_node_id", 0))
+        self.last_link_id = int(simplify_workflow.get("last_link_id", 0))
+
+    def load_prompt(self):
+        simplify_prompt = self.prompt
+        self.node_prompt_map = {
+            int(node_id): node for (node_id, node) in simplify_prompt.items()
+        }
+
+    def analysis_node(self):
+        self.input_nodes_ids.clear()
+        self.output_nodes_ids.clear()
+        self.crypto_nodes_ids.clear()
+
+        def find_input_nodes(node_id, visited=None):
+            if visited is None:
+                visited = set()
+            if node_id in visited:
+                return
+            visited.add(node_id)
+            self.input_nodes_ids.add(node_id)
+            node = self.workflow_nodes_dict.get(node_id)
+            if not node:
+                return
+            for input_node in node.get("inputs", []):
+                input_link = input_node.get("link")
+                if input_link is not None and input_link in self.link_owner_map:
+                    owner_id = self.link_owner_map[input_link]["owner_id"]
+                    find_input_nodes(owner_id, visited)
+
+        for input_node in self.workflow_nodes_dict[self.save_crypto_node_id].get(
+            "inputs", []
+        ):
+            if input_node["name"] and input_node["name"].startswith("input_anything"):
+                input_link = input_node["link"]
+                if input_link is not None and input_link in self.link_owner_map:
+                    owner_id = self.link_owner_map[input_link]["owner_id"]
+                    find_input_nodes(owner_id)
+
+        def find_output_nodes(node_id, visited=None):
+            if visited is None:
+                visited = set()
+            if node_id in visited:
+                return
+            visited.add(node_id)
+            self.output_nodes_ids.add(node_id)
+            node = self.workflow_nodes_dict.get(node_id)
+            if not node:
+                return
+            for output in node.get("outputs", []):
+                for link in output.get("links", []):
+                    if link is not None:
+                        for workflow_link in self.workflow.get("links", []):
+                            if workflow_link[0] == link:
+                                target_node_id = workflow_link[3]
+                                find_output_nodes(target_node_id, visited)
+
+        output_links = set()
+        for output_node in self.workflow_nodes_dict[self.crypto_bridge_node_id].get(
+            "outputs", []
+        ):
+            _links = output_node["links"]
+            output_links.update(_links)
+        for link in self.workflow.get("links", []):
+            if len(link) > 3 and link[0] in output_links:
+                find_output_nodes(link[3])
+        self.crypto_nodes_ids = (
+            self.workflow_nodes_dict.keys()
+            - self.input_nodes_ids
+            - self.output_nodes_ids
+        )
+        self.crypto_nodes_ids = self.crypto_nodes_ids - {
+            self.save_crypto_node_id,
+            self.crypto_bridge_node_id,
+        }
+
+    def calculate_crypto_result(self, crypto_file_name):
+        self.crypto_result = {"prompt": {}, "workflow": {}, "outputs": []}
+        for node_id in self.crypto_nodes_ids:
+            if node_id in self.node_prompt_map:
+                self.crypto_result["prompt"][node_id] = self.node_prompt_map[node_id]
+            if node_id in self.workflow_nodes_dict:
+                self.crypto_result["workflow"][node_id] = self.workflow_nodes_dict[
+                    node_id
+                ]
+        crypto_bridge_node = self.node_prompt_map[self.crypto_bridge_node_id]
+        for input_name, input_value in crypto_bridge_node.get("inputs", {}).items():
+            if isinstance(input_value, list) and len(input_value) == 2:
+                self.crypto_result["outputs"] = input_value[0], input_value[1]
+        json_result = json.dumps(self.crypto_result, indent=4, ensure_ascii=False)
+        save_dir = folder_paths.temp_directory
+        with open(os.path.join(save_dir, crypto_file_name), "w", encoding="utf-8") as f:
+            f.write(json_result)
+        return save_dir
+
+    def output_workflow_simple_shell(self, output_workflow_name):
+        simplify_workflow = copy.deepcopy(self.workflow)
+        save_crypto_node = None
+        crypto_bridge_node = None
+        for node in simplify_workflow["nodes"]:
+            if node["id"] == self.save_crypto_node_id:
+                save_crypto_node = node
+            if node["id"] == self.crypto_bridge_node_id:
+                crypto_bridge_node = node
+        except_nodes_ids = self.crypto_nodes_ids
+        except_nodes_ids.add(self.crypto_bridge_node_id)
+        simplify_workflow["nodes"] = [
+            node
+            for node in simplify_workflow["nodes"]
+            if int(node["id"]) not in except_nodes_ids
+        ]
+        if save_crypto_node is None:
+            raise ValueError("SaveCryptoNode not found in workflow")
+        if crypto_bridge_node is None:
+            raise ValueError("CryptoBridgeNode not found in workflow")
+        save_crypto_node["type"] = "DecodeCryptoNode"
+        save_crypto_node["widgets_values"] = (
+            [save_crypto_node.get("widgets_values", [None])[0]]
+            if "widgets_values" in save_crypto_node
+            else [None]
+        )
+        save_crypto_node["widgets_values"].append("")
+        save_crypto_node["properties"] = {"Node name for S&R": "DecodeCryptoNode"}
+        if "outputs" not in crypto_bridge_node:
+            save_crypto_node["outputs"] = []
         else:
-            self.workflow = copy.deepcopy(workflow)
+            save_crypto_node["outputs"] = copy.deepcopy(crypto_bridge_node["outputs"])
+        output_nodes_ids = [int(node["id"]) for node in simplify_workflow["nodes"]]
+        filtered_links = []
+        for link in simplify_workflow["links"]:
+            if len(link) < 5:
+                continue
+            if link[1] == self.crypto_bridge_node_id:
+                link[1] = self.save_crypto_node_id
+            if link[1] in output_nodes_ids and link[3] in output_nodes_ids:
+                filtered_links.append(link)
+            else:
+                pass
+        simplify_workflow["links"] = filtered_links
+        simplify_workflow.pop("groups", None)
+        save_dir = folder_paths.output_directory
+        with open(
+            os.path.join(folder_paths.output_directory, output_workflow_name),
+            "w",
+            encoding="utf-8",
+        ) as f:
+            json.dump(simplify_workflow, f, ensure_ascii=False, indent=4)
+        return save_dir
 
-        self.output_images_link = 0
+    def save_original_workflow(self, output_workflow_name, save_dir):
+        with open(
+            os.path.join(save_dir, output_workflow_name), "w", encoding="utf-8"
+        ) as f:
+            json.dump(self.workflow, f, ensure_ascii=False, indent=4)
+        return save_dir
 
-        nodes_dict = {node['id']: node for node in self.workflow['nodes']}
-        self.max_id_index = max(nodes_dict.keys()) + 1
+    def save_original_prompt(self, output_prompt_name, save_dir):
+        with open(
+            os.path.join(save_dir, output_prompt_name), "w", encoding="utf-8"
+        ) as f:
+            json.dump(self.prompt, f, ensure_ascii=False, indent=4)
+        return save_dir
 
+
+class DecodeCryptoWorkflow:
+    def __init__(self, prompt, workflow, template_id):
+        self.prompt = prompt
+        self.workflow = workflow
+        self.template_id = template_id
+        self.crypto_result = {}
+        self.input_anything_map = {}
+
+    def calculate_input_anything_map(self):
+        self.input_anything_map.clear()
+        for node_id, node in self.prompt.items():
+            if node.get("class_type") == "DecodeCryptoNode":
+                for input_name, input_value in node.get("inputs", {}).items():
+                    if input_name.startswith("input_anything"):
+                        if isinstance(input_value, list) and len(input_value) == 2:
+                            input_link_key = f"{input_value[0]}_{input_value[1]}"
+                            self.input_anything_map[input_link_key] = input_name
+        return self.input_anything_map
+
+    def load_crypto_prompt(self, serial_number_token, user_token=None):
+        if not user_token:
+            user_token = AuthUnit().read_user_token()
+        content = DownloadWorkflow().download_workflow(
+            self.template_id, serial_number_token, user_token
+        )
+        if not isinstance(content, str) or content == "":
+            raise ValueError("failed to download workflow")
+        self.crypto_result = json.loads(content)
+        return self.crypto_result["prompt"]
+
+    def get_hidden_input(self, input_value):
+        if isinstance(input_value, list) and len(input_value) == 2:
+            key = f"{input_value[0]}_{input_value[1]}"
+            return self.input_anything_map.get(key, None)
+
+    def get_outputs(self):
+        return self.crypto_result["outputs"]
+
+
+class WorkflowTrimHandler:
+    @staticmethod
+    def onprompt_handler(json_data: Dict[str, Any]) -> Dict[str, Any]:
+        prompt = json_data["prompt"]
+        has_new_component = False
+        has_old_component = False
+        for node in prompt.values():
+            class_type = node.get("class_type")
+            if class_type == "SaveCryptoNode":
+                has_new_component = True
+                break
+            if class_type == "ExcuteCryptoNode":
+                has_old_component = True
+                break
+        if has_new_component:
+            user_token, error_msg = AuthUnit().get_user_token()
+            if not user_token and (
+                error_msg == "no token found" or error_msg == "login result error"
+            ):
+                AuthUnit().login_dialog("输出CryptoCat加密工作流，请先完成登录")
+                json_data["prompt"] = {}
+        elif has_old_component:
+            prompt = WorkflowTrimHandler.replace_prompt(prompt)
+            json_data["prompt"] = prompt
+        return json_data
 
     @staticmethod
-    def find_workflow_related_nodes(nodes, input_ids):
-        found_ids = set()
-        stack = list(input_ids)
-        while stack:
-            link_id = stack.pop()
-            for node_id, node in nodes.items():
-                outputs = node.get('outputs', None)
-                if not outputs:
-                    continue
-                for output in outputs:
-                    links = output.get('links', None)
-                    if not links:
-                        continue
-                    if link_id in links:
-                        if node_id not in found_ids:
-                            found_ids.add(node_id)
-                            inputs = node.get('inputs', [])
-                            for input_node in inputs:
-                                link_id = input_node.get('link')
-                                if link_id is not None:
-                                    stack.append(link_id)
-                        break
-        return found_ids
-
-    def trim_workflow(self):   
-        if not self.workflow:
+    def replace_prompt(prompt: Dict[str, Any]) -> Dict[str, Any]:
+        if not prompt:
             raise ValueError("Invalid JSON format.")
-                
-        nodes_dict = {node['id']: node for node in self.workflow['nodes']}
-        save_crypto_node_ids = [node_id for node_id, details in nodes_dict.items() if details.get('type') == 'SaveCryptoNode']
-        if len(save_crypto_node_ids) == 1:
-            save_crypto_node_id = save_crypto_node_ids[0]
-
-            # 获取所有以 'input_anything' 开头的输入链接
-            input_ids = set()
-            for input_node in nodes_dict[save_crypto_node_id].get('inputs', []):
-                if input_node['name'] and input_node['name'].startswith('input_anything'):
-                    input_ids.add(input_node['link'])
-                if input_node['name'] and input_node['name'] == "output_images":
-                    self.output_images_link = input_node['link']
-
-            # 只处理有效的链接 ID
-            input_ids = {link_id for link_id in input_ids if link_id is not None}
-
-            # 找到与输入链接相关的节点
-            related_node_ids = self.find_workflow_related_nodes(nodes_dict, input_ids)
-
-            # 添加 SaveCryptoNode 本身
-            related_node_ids.add(save_crypto_node_id)
-
-            # # 打印和删除不相关的节点
-            # for node_id in nodes_dict.keys():
-            #     if node_id not in related_node_ids:
-            #         print(f"Removing node ID: {node_id} - {nodes_dict[node_id]}")
-
-            # 更新节点和链接
-            self.workflow['nodes'] = [details for node_id, details in nodes_dict.items() if node_id in related_node_ids]
-            remaining_node_ids = {node['id'] for node in self.workflow['nodes']}
-            self.workflow.pop('groups', None)
-            self.workflow['output_images_id'] = self.output_images_link       
-
-            
-            # 保留包含任一节点 ID 的链接
-            self.workflow['links'] = [
-                link for link in self.workflow['links']
-                if link[1] in remaining_node_ids and link[3] in remaining_node_ids
-            ]
-
-            return self.workflow
-        
-        elif len(save_crypto_node_ids) > 1:
-            raise ValueError("Error: Multiple 'SaveCryptoNode' instances found.")
-        else:
-            raise ValueError("Error: No 'SaveCryptoNode' instances found.")
-        
-    
-        
-
-    def replace_workflow(self,hide_prompt_path):
-        if not self.workflow:
-            raise ValueError("Invalid JSON format.")
-
-        nodes_dict = {node['id']: node for node in self.workflow['nodes']}
-        output_images_link = None
-
-        # 替换 SaveCryptoNode 为 ExcuteCryptoNode
-        for node in self.workflow['nodes']:
-            if node.get('type') == 'SaveCryptoNode':
-                node['type'] = 'ExcuteCryptoNode'
-                node['properties']['Node name for S&R'] = 'ExcuteCryptoNode'
-                
-                # 移除 output_images 输入并获取 link
-                for inp in node['inputs']:
-                    if inp['name'] == 'output_images':
-                        output_images_link = inp.get('link')
-                node['inputs'] = [inp for inp in node['inputs'] if inp['name'] != 'output_images']
-                node['widgets_values'] = [hide_prompt_path]
-
-        # 找到 ExcuteCryptoNode 的位置
-        execute_node = next((node for node in self.workflow['nodes'] if node.get('type') == 'ExcuteCryptoNode'), None)
-
-        if not execute_node:
-            raise ValueError("No 'ExcuteCryptoNode' instance found.")        
-
-        # 创建新的 CryptoCatImage 节点
-        execute_node_pos = execute_node['pos']
-        self.max_id_index = max(max(nodes_dict.keys()) + 1, self.max_id_index)
-        new_save_image_node = {
-            "id": self.max_id_index,  # 新节点 ID，确保唯一
-            "type": "CryptoCatImage",
-            "size": {
-                "0": 210,
-                "1": 162
-            },
-            "flags": {},
-            "order": 50,
-            "mode": 0,
-            "inputs": [
-                {
-                    "name": "images",
-                    "type": "IMAGE",
-                    "link": output_images_link,  # 使用获取的 link
-                    "label": "images"
-                }
-            ],
-            "outputs": [],  # 新节点没有输出
-            "properties": {
-                "Node name for S&R": "CryptoCatImage"
-            }
-        }
-        # 将新节点添加到节点列表
-        self.workflow['nodes'].append(new_save_image_node)
-
-        # 删除原有的链接以避免冲突
-        self.workflow['links'] = [
-            link for link in self.workflow['links'] if link[0] != output_images_link
-        ]
-
-        # 用新的 outputs 替换 ExcuteCryptoNode 的 outputs
-        execute_node['outputs'] = [
-            {
-                "name": "IMAGE",
-                "type": "IMAGE",
-                "links": [output_images_link],  # 连接到新节点
-                "shape": 3,
-                "label": "IMAGE",
-                "slot_index": 0
-            }
-        ]
-
-        # 添加链接信息
-        self.workflow['links'].append([
-            output_images_link,  # ExcuteCryptoNode 的输出 ID
-                execute_node['id'],  # 新节点 ID
-            0,  # 新节点的输入索引
-            new_save_image_node['id'],    # ExcuteCryptoNode ID（旧节点 ID）
-            0,  # 旧节点的输出索引
-            "IMAGE"  # 数据类型
-        ])
-
-        return self.workflow
-    
-
-    def set_excute_crypto_node_path(self, path):
-        if not self.workflow:
-            raise ValueError("Invalid JSON format.")
-        for node in self.workflow['nodes']:
-            if node.get('type') == 'ExcuteCryptoNode':
-                node['properties']['Path to executable file'] = path
-    
-
-    def get_remaining_node_ids(self):
-        if not self.workflow:
-            raise ValueError("Invalid JSON format.")
-        remaining_node_ids = {node['id'] for node in self.workflow['nodes']}
-        return remaining_node_ids
-   
-
-
-class PromptTrim():
-    def __init__(self, prompt):
-        self.prompt = prompt
-        self.debug = True
-        self.hide_part_prompt = {}
-        self.show_part_prompt = {}
-
-    def split_prompt(self, related_node_ids):
-        if not self.prompt:
-            raise ValueError("Invalid JSON format.")
-        
-        # 查找第一个 'SaveCryptoNode' 实例并转换为 int
-        # save_crypto_node_id = next((int(node_id) for node_id, details in self.prompt.items() if details['class_type'] == 'SaveCryptoNode'), None)
-        save_crypto_node_id = None
-        output_images_ids = []
-        for node_id, details in self.prompt.items():
-            if details['class_type'] == 'SaveCryptoNode':
-                output_images_ids = details['inputs'].get('output_images')
-                save_crypto_node_id = int(node_id)
-                break
-
-        if save_crypto_node_id is None:
-            raise ValueError("Error: No 'SaveCryptoNode' instances found.")
-
-        if save_crypto_node_id not in related_node_ids:
-            raise AssertionError("SaveCryptoNode not found in related node list.")
-
-        self.hide_part_prompt = {}
-        self.show_part_prompt = {}
-
-        # 输出不在链中的节点
-        for node_id in self.prompt.keys():
-            node_id_int = int(node_id)  # 转换为 int 类型
-            if node_id_int not in related_node_ids:
-                self.hide_part_prompt[node_id_int] = self.prompt[node_id]
-            else:
-                self.show_part_prompt[node_id_int] = self.prompt[node_id]
-
-        self.hide_part_prompt['output_images_ids'] = output_images_ids
-        return self.show_part_prompt, self.hide_part_prompt
-    
-
-    def replace_prompt(self):
-        if not self.prompt:
-            raise ValueError("Invalid JSON format.")
-
-        crypto_file_path = ''
+        crypto_file_path = ""
         excute_crypto_id = None
-
-        # 查找 ExcuteCryptoNode 并获取路径，同时构建需要删除的节点
-        for node_id, node in list(self.prompt.items()):
-            if node.get('class_type') == 'ExcuteCryptoNode':
-                crypto_file_path = node['inputs'].get('crypto_file_path')
+        for node_id, node in list(prompt.items()):
+            if node.get("class_type") == "ExcuteCryptoNode":
+                crypto_file_path = node["inputs"].get("crypto_file_path")
                 excute_crypto_id = node_id
-                # 删除当前节点
-                del self.prompt[node_id]
-                break   
-
+                del prompt[node_id]
+                break
         if not crypto_file_path:
             print("No 'ExcuteCryptoNode' found in prompt.")
-            return self.prompt
-        
-        # print(f"{crypto_file_path=}")
-
-        inject_json = FileCompressor.decompress_from_json(crypto_file_path, "19040822")        
-        output_images_ids = inject_json['output_images_ids'] 
-        inject_json.pop('output_images_ids', None)
-        for node_id, node in list(self.prompt.items()):
-            if node.get('class_type') == 'CryptoCatImage':
-                ids = node['inputs']['images'] #input_images
-                if excute_crypto_id in ids:
-                    node['inputs']['images'] = output_images_ids   
-
-        # 随机生成一个种子，避免缓存问题
-        random_seed_node = next((node for node in inject_json.values() if node.get('class_type') == 'RandomSeedNode'), None)
+            return prompt
+        inject_json = FileCompressor.decompress_from_json(crypto_file_path, "19040822")
+        output_images_ids = inject_json.pop("output_images_ids")
+        for node in prompt.values():
+            if node.get("class_type") == "CryptoCatImage":
+                if excute_crypto_id in node["inputs"]["images"]:
+                    node["inputs"]["images"] = output_images_ids
+        random_seed_node = next(
+            (
+                node
+                for node in inject_json.values()
+                if node.get("class_type") == "RandomSeedNode"
+            ),
+            None,
+        )
         if random_seed_node:
-            random_seed_node["inputs"]["is_changed"] = random.randint(0, 999999)              
-                    
-
-        # 将 inject_json 的节点合并到当前 prompt
-        # for node in inject_json.get('nodes', []):
-        #     self.prompt[node['id']] = node  # 使用 ID 添加或更新节点
-        self.prompt.update(inject_json)
-
-        if self.debug == True:
-            temp_dir = os.environ.get('TEMP') or os.environ.get('TMP') or '/tmp' 
-            filename = os.path.basename(crypto_file_path) + "_prompt.json"       
-            with open(os.path.join(temp_dir, filename), "w", encoding="utf-8") as f:
-                json.dump(self.prompt, f, indent=4)     
-            print(f"prompt len = {len(self.prompt)}")       
-
-        return self.prompt
-    
-    def has_crypto_node(self):
-        if not self.prompt:
-            return False
-        return any(node.get('class_type') == 'ExcuteCryptoNode' for node in self.prompt.values())
-        
-
-
-
-
-
-            
-
-
-
-
-
-if __name__ == "__main__":
-    
-
-    current_dir = os.path.dirname(os.path.abspath(__file__)) 
-    parent_dir = os.path.dirname(os.path.dirname(current_dir))
-    sys.path.append(parent_dir) 
-    import folder_paths
-
-    with open("D:\\work\\ComfyUI\\temp\\flux+lora简单版_original_workflow.json", "r", encoding="utf-8") as f:
-        workflow = json.load(f)
-
-    wt = WorkflowTrim(workflow)
-    wt.trim_workflow()
-    replace_json = wt.replace_workflow('')
-
-    with open("D:\\work\\ComfyUI\\temp\\flux+lora简单版_trim.json", "w", encoding="utf-8") as f:
-        json.dump(replace_json, f, indent=4)
-
-
- ######################################################
-    with open("D:\\work\\ComfyUI\\temp\\flux+lora简单版.txt", "r", encoding="utf-8") as f:
-        prompt = json.load(f)
-    
-    pt = PromptTrim(prompt)
-    show_part_prompt, hide_part_prompt = pt.split_prompt(wt.get_remaining_node_ids())
-
-    with open("D:\\work\\ComfyUI\\temp\\flux+lora简单版_show_part_prompt.json", "w", encoding="utf-8") as f:
-        json.dump(show_part_prompt, f, indent=4)
-
-    with open("D:\\work\\ComfyUI\\temp\\flux+lora简单版_hide_part_prompt.json", "w", encoding="utf-8") as f:
-        json.dump(hide_part_prompt, f, indent=4)
-
-    
-
-
-
-    
-
+            random_seed_node["inputs"]["is_changed"] = random.randint(0, 999999)
+        prompt.update(inject_json)
+        return prompt

@@ -1,47 +1,99 @@
-from functools import wraps
-import json
-from .trim_workflow import PromptTrim
-from .crypto_node import SaveCryptoNode, ExcuteCryptoNode, RandomSeedNode,CryptoCatImage
+from functools import partial, wraps
+import os
+from .trim_workflow import WorkflowTrimHandler
+from .crypto_node import (
+    SaveCryptoNode,
+    RandomSeedNode,
+    SaveCryptoBridgeNode,
+    DecodeCryptoNode,
+)
+from .crypto_node_old import ExcuteCryptoNode, CryptoCatImage
 
 NODE_CLASS_MAPPINGS = {
     "SaveCryptoNode": SaveCryptoNode,
     "ExcuteCryptoNode": ExcuteCryptoNode,
     "RandomSeedNode": RandomSeedNode,
-    "CryptoCatImage":CryptoCatImage,
+    "CryptoCatImage": CryptoCatImage,
+    "SaveCryptoBridgeNode": SaveCryptoBridgeNode,
+    "DecodeCryptoNode": DecodeCryptoNode,
 }
- 
-# A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "SaveCryptoNode": "InputCrypto",
+    "SaveCryptoNode": "加密组件",
+    "RandomSeedNode": "随机种子",
+    "SaveCryptoBridgeNode": "加密结束桥接",
+    "DecodeCryptoNode": "解密组件",
     "ExcuteCryptoNode": "OutputCrypto",
-    "RandomSeedNode": "RandomSeedNode",
-    "CryptoCatImage":"CryptoCatImage",
+    "CryptoCatImage": "CryptoCatImage",
 }
-
 WEB_DIRECTORY = "./js"
-
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAMES_MAPPINGS', 'WEB_DIRECTORY']
-
-
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAMES_MAPPINGS", "WEB_DIRECTORY"]
 from server import PromptServer
+import aiohttp
+
+workspace_path = os.path.join(os.path.dirname(__file__))
+dist_path = os.path.join(workspace_path, "static")
+if os.path.exists(dist_path):
+    PromptServer.instance.app.add_routes(
+        [aiohttp.web.static("/cryptocat/static", dist_path)]
+    )
+from urllib.parse import unquote
+from .auth_unit import AuthUnit
+from .updown_workflow import UploadWorkflow, UserWorkflowSetting
+
+handler_instance = WorkflowTrimHandler()
+onprompt_callback = partial(handler_instance.onprompt_handler)
+PromptServer.instance.add_on_prompt_handler(onprompt_callback)
+routes = PromptServer.instance.routes
 
 
-method_name = "trigger_on_prompt"
-original_method = getattr(PromptServer, method_name)
+@routes.get("/cryptocat/auth_callback")
+async def auth_callback(request):
+    auth_query = request.query
+    token = auth_query.get("token", "")
+    client_key = auth_query.get("client_key", "")
+    if token and client_key:
+        token = unquote(token)
+        client_key = unquote(client_key)
+        AuthUnit().save_user_token(token, client_key)
+    return aiohttp.web.json_response({"status": "success"}, status=200)
 
-# 创建 hook
-@wraps(original_method)
-def new_trigger_on_prompt(self, json_data):
-    prompt = json_data["prompt"]
-    pr = PromptTrim(prompt)    
-    if pr.has_crypto_node():
-        print("has crypto node")
-        json_data["prompt"] = pr.replace_prompt()
-        # 删除 extra_data 字段
-        if "extra_data" in json_data:
-            json_data["extra_data"] = {}
-            print("hook new_trigger_on_prompt delete extra_data")
-    result = original_method(self, json_data)    
-    return result
 
-setattr(PromptServer, method_name, new_trigger_on_prompt)
+@routes.post("/cryptocat/keygen")
+async def keygen(request):
+    data = await request.json()
+    template_id = data.get("template_id", "").strip()
+    if not template_id or len(template_id) != 32:
+        return aiohttp.web.json_response(
+            {"error_msg": "template_id is required"}, status=500
+        )
+    user_token, error_msg = AuthUnit().get_user_token()
+    if not user_token:
+        return aiohttp.web.json_response({"error_msg": error_msg}, status=200)
+    user_workflow = UploadWorkflow(user_token)
+    serial_numbers = user_workflow.generate_serial_number(template_id, 1)
+    if not serial_numbers:
+        return aiohttp.web.json_response({"error_msg": "获取失败"}, status=200)
+    serial_number = serial_numbers[0]
+    return aiohttp.web.json_response({"serial_number": serial_number}, status=200)
+
+
+@routes.get("/cryptocat/logout")
+async def logout(request):
+    AuthUnit().clear_user_token()
+    return aiohttp.web.json_response({"status": "success"}, status=200)
+
+
+@routes.post("/cryptocat/set_long_token")
+async def set_long_token(request):
+    data = await request.json()
+    long_token = data.get("long_token", "")
+    AuthUnit().save_long_token(long_token)
+    return aiohttp.web.json_response({"status": "success"}, status=200)
+
+
+@routes.post("/cryptocat/set_auto_overwrite")
+async def set_auto_overwrite(request):
+    data = await request.json()
+    auto_overwrite = data.get("auto_overwrite")
+    UserWorkflowSetting().set_auto_overwrite(auto_overwrite)
+    return aiohttp.web.json_response({"status": "success"}, status=200)

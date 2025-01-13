@@ -1,187 +1,265 @@
 import json
 import os
 import random
+import uuid
 import torch
+from comfy_execution.graph import ExecutionBlocker
+from comfy_execution.graph_utils import GraphBuilder
+from .updown_workflow import UploadWorkflow
+from server import PromptServer
+from .trim_workflow import CryptoWorkflow, DecodeCryptoWorkflow
+from .auth_unit import AuthUnit
 
-from nodes import SaveImage
-from .trim_workflow import PromptTrim, WorkflowTrim
-from.file_compressor import FileCompressor
-import folder_paths
 
-
-class SaveCryptoNode():
+class SaveCryptoNode:
     def __init__(self):
         pass
-
 
     @classmethod
     def INPUT_TYPES(s):
         return {
-                "required": {           
-                "crypto_folder": ("STRING", {"default": folder_paths.output_directory}),
-                "crypto_name": ("STRING", {"default": "my_cat.json"}),    
-                "output_images" : ("IMAGE",),                    
-                },
-                "optional": {
-                    "input_anything" : ("*",),
-                },
-                "hidden": {
-                    "unique_id": "UNIQUE_ID",
-                    "prompt": "PROMPT", 
-                    "extra_pnginfo": "EXTRA_PNGINFO",
-                }
-            }    
+            "required": {"template_id": ("STRING", {"default": uuid.uuid4().hex})},
+            "optional": {"input_anything": ("*", {})},
+            "hidden": {
+                "unique_id": "UNIQUE_ID",
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+            },
+        }
 
-    # @classmethod
-    # def VALIDATE_INPUTS(s, input_types):
-    #     return True
-
- 
-    RETURN_TYPES = ()  #"STRING",
+    RETURN_TYPES = ()
     OUTPUT_NODE = True
-    FUNCTION = "crypto"  #这个节点中的主函数 
-    CATEGORY = "advanced/CryptoCat"    
- 
-    def crypto(self, crypto_folder, crypto_name, output_images, **kwargs):
-        if not crypto_name or len(crypto_folder) < 2 or len(crypto_name) == 0:
-            raise Exception("CryptoCat folder and filename must be at least two characters long")
-        
-        # 从 kwargs 中提取特定参数
-        unique_id = kwargs.pop('unique_id', None)
-        prompt = kwargs.pop('prompt', None)
-        extra_pnginfo = kwargs.pop('extra_pnginfo', None)
+    FUNCTION = "crypto"
+    CATEGORY = "advanced/CryptoCat"
 
-        # 检查必需参数是否存在
+    @classmethod
+    def IS_CHANGED(s, **kwargs):
+        return float("NaN")
+
+    @classmethod
+    def VALIDATE_INPUTS(s, input_types):
+        return True
+
+    def crypto(self, template_id, **kwargs):
+        unique_id = kwargs.pop("unique_id", None)
+        prompt = kwargs.pop("prompt", None)
+        extra_pnginfo = kwargs.pop("extra_pnginfo", None)
         if unique_id is None:
             raise Exception("Warning: 'unique_id' is missing.")
         if prompt is None:
             raise Exception("Warning: 'prompt' is missing.")
+        if len(template_id) != 32:
+            raise Exception("Warning: 'template_id' length is not 32.")
+        crypto_workflow = CryptoWorkflow(extra_pnginfo["workflow"], prompt, template_id)
+        crypto_workflow.invalid_workflow()
+        crypto_workflow.load_workflow()
+        crypto_workflow.load_prompt()
+        crypto_workflow.analysis_node()
+        crypto_dir = crypto_workflow.calculate_crypto_result(
+            f"crypto_{template_id}.json"
+        )
+        output_dir = crypto_workflow.output_workflow_simple_shell(
+            f"cryptocat_{template_id}.json"
+        )
+        crypto_workflow.save_original_workflow(
+            f"original_workflow_{template_id}.json", crypto_dir
+        )
+        crypto_workflow.save_original_prompt(
+            f"original_prompt_{template_id}.json", crypto_dir
+        )
+        user_token, error_msg = AuthUnit().get_user_token()
+        if not user_token:
+            if error_msg == "no token found" or error_msg == "login failed":
+                AuthUnit().login_dialog("输出CryptoCat加密工作流，请先完成登录")
+            else:
+                PromptServer.instance.send_sync(
+                    "cryptocat_toast",
+                    {"content": "无法完成鉴权登录，请检查网络或完成登录步骤", "type": "error"},
+                )
+            return (ExecutionBlocker(None),)
+        upload = UploadWorkflow(user_token)
+        ret = upload.upload_workflow(template_id, crypto_dir)
+        if not ret:
+            print("crypto cat upload failed")
+            return (ExecutionBlocker(None),)
+        serial_numbers = upload.generate_serial_number(template_id, 10)
+        if serial_numbers:
+            sn_file_path = os.path.join(output_dir, f"serial_numbers_{template_id}.txt")
+            with open(sn_file_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(serial_numbers))
+            PromptServer.instance.send_sync(
+                "cryptocat_toast",
+                {
+                    "content": f"加密完成，在{sn_file_path}中查看序列号",
+                    "type": "info",
+                    "duration": 5000,
+                },
+            )
+        return (template_id,)
 
-        # 将剩余的 kwargs 存储在 inputs 列表中
-        inputs = list(kwargs.values())               
 
-        temp_dir = os.environ.get('TEMP') or os.environ.get('TMP') or '/tmp'
-        project_temp_folder = os.path.join(temp_dir, crypto_name)
-        if not os.path.exists(project_temp_folder):
-            os.makedirs(project_temp_folder)
+class AnyType(str):
+    def __ne__(self, __value: object) -> bool:
+        return False
 
 
-        # 保存源文件，用于调试
-        with open(os.path.join(project_temp_folder, "prompt.json"), "w", encoding="utf-8") as f:            
-            f.write(json.dumps(prompt, indent=4, ensure_ascii=False))
-        with open(os.path.join(project_temp_folder, "workflow.json"), "w", encoding="utf-8") as f:            
-            f.write(json.dumps(extra_pnginfo, indent=4, ensure_ascii=False))  
-
-        # 保存需要的输出文件
-        project_folder = os.path.join(crypto_folder, crypto_name)
-        if not os.path.exists(project_folder):
-            os.makedirs(project_folder)
-
-        hide_prompt_path = os.path.join(project_folder, "prompt.dat")        
-        # 解析workflow
-        wt = WorkflowTrim(extra_pnginfo)
-        wt.trim_workflow()
-        show_workflow = wt.replace_workflow(hide_prompt_path)
-        with open(os.path.join(project_folder, "workflow.json"), "w", encoding="utf-8") as f:            
-            f.write(json.dumps(show_workflow, indent=4, ensure_ascii=False))
-
-        # 拆分prompt
-        pr = PromptTrim(prompt)
-        show_part_prompt,  hide_part_prompt = pr.split_prompt(wt.get_remaining_node_ids())
-        with open(os.path.join(project_temp_folder, "prompt_show.json"), "w", encoding="utf-8") as f:            
-            f.write(json.dumps(show_part_prompt, indent=4, ensure_ascii=False))        
-
-        FileCompressor.compress_to_json(hide_part_prompt, hide_prompt_path, "19040822")
-        return (hide_part_prompt,)
+any = AnyType("*")
 
 
-
-class ExcuteCryptoNode():
+class SaveCryptoBridgeNode:
     def __init__(self):
         pass
-    
+
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": { 
-                "crypto_file_path": ("STRING", {"default": folder_paths.output_directory}),         
-            },
-            "optional": {
-                "input_anything" : ("*",),
-            },
-            "hidden": {
-                "unique_id": "UNIQUE_ID",
-                "prompt": "PROMPT", 
-                "extra_pnginfo": "EXTRA_PNGINFO",
-            }
-        }
- 
-    RETURN_TYPES = ("IMAGE",) 
-    FUNCTION = "excute"  #这个节点中的主函数 
-    CATEGORY = "advanced/CryptoCat"
- 
-    def excute(self, **kwargs):
-        batch_size = 1
-        height = 1024
-        width = 1024
-        color = 0xFF0000        
-        r = torch.full([batch_size, height, width, 1], ((color >> 16) & 0xFF) / 0xFF)
-        g = torch.full([batch_size, height, width, 1], ((color >> 8) & 0xFF) / 0xFF)
-        b = torch.full([batch_size, height, width, 1], ((color) & 0xFF) / 0xFF)
-        return (torch.cat((r, g, b), dim=-1), )
-    
+        return {"required": {"value": (any,)}}
 
-# 产生随机数
-class RandomSeedNode():
-    def __init__(self):
-        pass
-    
     @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {     
-            },
-            "optional": {
-            },
-            "hidden": {
-            }
-        }
- 
-    RETURN_TYPES = ("INT",) 
-    FUNCTION = "random"  #这个节点中的主函数 
-    CATEGORY = "advanced/CryptoCat"
+    def VALIDATE_INPUTS(s, input_types):
+        return True
 
-    def IS_CHANGED():
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
         return float("NaN")
- 
-    def random(self):
-        # 产生随机数
-        return (random.randint(0, 999999), )
-    
 
-class CryptoCatImage(SaveImage):
+    RETURN_TYPES = (any,)
+    FUNCTION = "doit"
+    CATEGORY = "advanced/CryptoCat"
+
+    def doit(self, value):
+        return (value,)
+
+
+def is_link(obj):
+    if not isinstance(obj, list):
+        return False
+    if len(obj) != 2:
+        return False
+    if not isinstance(obj[0], str):
+        return False
+    if (
+        not isinstance(obj[1], int)
+        and not isinstance(obj[1], float)
+        and not isinstance(obj[1], str)
+    ):
+        return False
+    return True
+
+
+class AlwaysEqualProxy(str):
+    def __eq__(self, _):
+        return True
+
+    def __ne__(self, _):
+        return False
+
+
+class AlwaysTupleZero(tuple):
+    def __getitem__(self, _):
+        return AlwaysEqualProxy(super().__getitem__(0))
+
+
+class DecodeCryptoNode:
     def __init__(self):
-        super().__init__()
+        pass
 
     @classmethod
     def INPUT_TYPES(s):
         return {
             "required": {
-                "images": ("IMAGE", {"tooltip": "The images to save."}),
-                "filename_prefix": ("STRING", {"default": "ComfyUI", "tooltip": "The prefix for the file to save. This may include formatting information such as %date:yyyy-MM-dd% or %Empty Latent Image.width% to include values from nodes."})
+                "template_id": ("STRING",),
+                "serial_number": (
+                    "STRING",
+                    {"multiline": True, "placeholder": "请输入序列号"},
+                ),
             },
+            "optional": {"input_anything": (any,)},
             "hidden": {
-                "prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"
+                "unique_id": "UNIQUE_ID",
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
             },
         }
 
-    RETURN_TYPES = ()
-    FUNCTION = "save_images"
+    @classmethod
+    def VALIDATE_INPUTS(s, input_types):
+        return True
 
-    OUTPUT_NODE = True
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("NaN")
 
+    RETURN_TYPES = AlwaysTupleZero(AlwaysEqualProxy("*"))
+    FUNCTION = "decode"
     CATEGORY = "advanced/CryptoCat"
-    DESCRIPTION = "Saves the input images to your ComfyUI output directory."
+    OUTPUT_NODE = False
 
-    def save_images(self, images, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
-        return super().save_images(images, filename_prefix, None, None)
+    def decode(self, template_id, serial_number, **kwargs):
+        unique_id = kwargs.pop("unique_id", None)
+        prompt = kwargs.pop("prompt", None)
+        extra_pnginfo = kwargs.pop("extra_pnginfo", None)
+        decode_crypto_workflow = DecodeCryptoWorkflow(
+            prompt, extra_pnginfo["workflow"], template_id
+        )
+        crypto_prompt = decode_crypto_workflow.load_crypto_prompt(serial_number)
+        decode_crypto_workflow.calculate_input_anything_map()
+        processed_nodes = {}
+        graph = GraphBuilder()
+
+        def get_node_result(nodeData, id):
+            inputKeys = []
+            for ikey in nodeData["inputs"].keys():
+                input_value = nodeData["inputs"][ikey]
+                if (
+                    is_link(input_value)
+                    and decode_crypto_workflow.get_hidden_input(input_value) is None
+                    and input_value[0] not in processed_nodes
+                ):
+                    inputKeys.append(input_value[0])
+            for ikey in inputKeys:
+                if ikey not in crypto_prompt:
+                    continue
+                node = get_node_result(crypto_prompt[ikey], ikey)
+                processed_nodes[ikey] = node
+            inputs = nodeData["inputs"]
+            newInputs = {}
+            for ikey in inputs.keys():
+                if is_link(inputs[ikey]):
+                    hidden_input_name = decode_crypto_workflow.get_hidden_input(
+                        inputs[ikey]
+                    )
+                    if hidden_input_name:
+                        if hidden_input_name in kwargs:
+                            newInputs[ikey] = kwargs[hidden_input_name]
+                    elif inputs[ikey][0] in processed_nodes:
+                        newInputs[ikey] = processed_nodes[inputs[ikey][0]].out(
+                            inputs[ikey][1]
+                        )
+                else:
+                    newInputs[ikey] = inputs[ikey]
+            return graph.node(nodeData["class_type"], id, **newInputs)
+
+        node_id, link_idx = decode_crypto_workflow.get_outputs()
+        nodeData = crypto_prompt[node_id]
+        node = get_node_result(nodeData, node_id)
+        value = node.out(link_idx)
+        return {"result": tuple([value]), "expand": graph.finalize()}
+
+
+class RandomSeedNode:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {}, "optional": {}, "hidden": {}}
+
+    RETURN_TYPES = ("INT",)
+    FUNCTION = "random"
+    CATEGORY = "advanced/CryptoCat"
+
+    def IS_CHANGED():
+        return float("NaN")
+
+    def random(self):
+        return (random.randint(0, 999999),)
