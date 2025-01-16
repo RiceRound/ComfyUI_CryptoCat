@@ -1,4 +1,3 @@
-_E=False
 _D='user_token'
 _C='utf-8'
 _B='Auth'
@@ -15,7 +14,7 @@ class AuthUnit:
 	def __init__(A):
 		B=True
 		if not hasattr(A,'initialized'):A.machine_id=get_machine_id();C=get_local_app_setting_path();C.mkdir(parents=B,exist_ok=B);A.config_path=C/'config.ini';A.last_check_time=0;A.initialized=B
-	def empty_token(A,need_clear=_E):
+	def empty_token(A,need_clear=False):
 		A.token='';A.last_check_time=0
 		if need_clear:A.clear_user_token()
 	def get_user_token(A):
@@ -42,7 +41,7 @@ class AuthUnit:
 	def login_dialog(A,title=''):A.client_key=generate_random_string(8);PromptServer.instance.send_sync('cryptocat_login_dialog',{'machine_id':A.machine_id,'client_key':A.client_key,'title':title})
 	def read_user_token(A):
 		if not os.path.exists(A.config_path):return''
-		try:B=configparser.ConfigParser();B.read(A.config_path,encoding=_C,strict=_E);return B.get(_B,_D,fallback='')
+		try:B=configparser.ConfigParser();B.read(A.config_path,encoding=_C);return B.get(_B,_D,fallback='')
 		except Exception as C:print(f"Error reading token: {C}");return''
 	def set_user_token(B,user_token,client_key):
 		C=client_key;A=user_token
@@ -52,7 +51,7 @@ class AuthUnit:
 	def _save_user_token(B,user_token):
 		try:
 			A=configparser.ConfigParser()
-			if os.path.exists(B.config_path):A.read(B.config_path,encoding=_C,strict=_E)
+			if os.path.exists(B.config_path):A.read(B.config_path,encoding=_C)
 			if _B not in A:A.add_section(_B)
 			A[_B][_D]=user_token
 			with open(B.config_path,'w',encoding=_C)as D:A.write(D)
