@@ -1,107 +1,73 @@
-_G='clear_key'
-_F='cryptocat_clear_user_info'
-_E='long_token'
+_E=False
 _D='user_token'
-_C=None
+_C='utf-8'
 _B='Auth'
-_A='utf-8'
-import base64,json,logging,os
-from pathlib import Path
-import time
+_A=None
+import os,time,requests,configparser
+from.utils import get_local_app_setting_path,get_machine_id,generate_random_string
 from.url_config import CatUrlConfig
 from server import PromptServer
-import requests,configparser
-from.utils import generate_random_string,get_local_app_setting_path,get_machine_id
-CRYPT_FLAG='CAT_CRYPT'
-CRYPT_FLAG_LENGTH=len(CRYPT_FLAG)
 class AuthUnit:
-	_instance=_C
+	_instance=_A
 	def __new__(A,*B,**C):
-		if A._instance is _C:A._instance=super(AuthUnit,A).__new__(A)
+		if A._instance is _A:A._instance=super(AuthUnit,A).__new__(A)
 		return A._instance
 	def __init__(A):
 		B=True
-		if not hasattr(A,'initialized'):A.machine_id=get_machine_id();C=get_local_app_setting_path();C.mkdir(parents=B,exist_ok=B);A.config_path=C/'config.ini';A.token=A.read_user_token();A.long_token=A.read_long_token();A.client_key='';A.shift_key=sum(ord(A)for A in A.machine_id[:8])%20+1;A.last_check_time=0;A.initialized=B
-	def empty_token(A,token,clear=False):
-		C=clear;B=token
-		if B==A.token:
-			A.token=''
-			if C:PromptServer.instance.send_sync(_F,{_G:_D})
-		elif B==A.long_token:
-			A.long_token=''
-			if C:PromptServer.instance.send_sync(_F,{_G:_E})
-		else:print('empty_token error',B)
-	def get_user_token(B):
-		A=B.token
-		if not A:
-			A=B.read_user_token()
-			if not A:
-				if B.long_token and len(B.long_token)>50:A=B.long_token
-				else:return _C,'no token found'
-			else:B.token=A
-		if time.time()-B.last_check_time>120 and A:
+		if not hasattr(A,'initialized'):A.machine_id=get_machine_id();C=get_local_app_setting_path();C.mkdir(parents=B,exist_ok=B);A.config_path=C/'config.ini';A.last_check_time=0;A.initialized=B
+	def empty_token(A,need_clear=_E):
+		A.token='';A.last_check_time=0
+		if need_clear:A.clear_user_token()
+	def get_user_token(A):
+		F='message';A.token=A.read_user_token()
+		if time.time()-A.last_check_time>120 and A.token and len(A.token)>50:
 			try:
-				D={'Content-Type':'application/json','Authorization':f"Bearer {A}"};print('login_api_url',CatUrlConfig().login_api_url);C=requests.get(CatUrlConfig().login_api_url,headers=D)
-				if C.status_code==200:B.last_check_time=time.time()
-				else:print('crypto cat login result error',C);B.empty_token(A,C.status_code==401);A=_C;return _C,'login result error'
-			except requests.RequestException as E:B.empty_token(A);A=_C;print('crypto cat login failed',E);return _C,'login failed'
-		return A,''
+				G={'Content-Type':'application/json','Authorization':f"Bearer {A.token}"};B=requests.get(CatUrlConfig().login_api_url,headers=G,timeout=10)
+				if B.status_code==200:A.last_check_time=time.time();return A.token,'',0
+				else:
+					C='登录结果错误';D=1
+					try:
+						E=B.json()
+						if F in E:C=E[F]
+					except ValueError:pass
+					if B.status_code==401:C='登录已过期，请重新登录';D=401
+					elif B.status_code==500:C='服务器内部错误，请稍后重试';D=500
+					elif B.status_code==503:C='服务不可用，请稍后重试';D=503
+					A.empty_token(B.status_code==401);return _A,C,D
+			except requests.exceptions.Timeout:A.empty_token();return _A,'请求超时，请检查网络连接',408
+			except requests.exceptions.ConnectionError:A.empty_token();return _A,'网络连接失败，请检查网络',-1
+			except requests.exceptions.RequestException as H:A.empty_token();return _A,f"请求失败: {str(H)}",-2
+		if A.token and len(A.token)>50:return A.token,'',0
+		return _A,'未读取到有效的token，请重新登录',-3
 	def login_dialog(A,title=''):A.client_key=generate_random_string(8);PromptServer.instance.send_sync('cryptocat_login_dialog',{'machine_id':A.machine_id,'client_key':A.client_key,'title':title})
-	@staticmethod
-	def _encrypt(text,shift_key):
-		'Encrypt text using a simple character shift and base64 encoding.'
-		if not text:return''
-		try:B=CRYPT_FLAG+''.join(chr((ord(A)+shift_key)%65536)for A in text);return base64.b64encode(B.encode(_A)).decode(_A)
-		except Exception as A:logging.error(f"Encryption error: {A}");raise RuntimeError(f"Encryption failed: {A}")
-	@staticmethod
-	def _decrypt(encoded_text,shift_key):
-		'Decrypt text that was encrypted with the _encrypt method.';B=encoded_text
-		try:
-			A=base64.b64decode(B.encode(_A)).decode(_A)
-			if not A.startswith(CRYPT_FLAG):return B
-			A=A[CRYPT_FLAG_LENGTH:];return''.join(chr((ord(A)-shift_key)%65536)for A in A)
-		except Exception as C:print(f"Decryption error: {C}");return B
 	def read_user_token(A):
-		'Retrieve and decrypt the user token.'
 		if not os.path.exists(A.config_path):return''
+		try:B=configparser.ConfigParser();B.read(A.config_path,encoding=_C,strict=_E);return B.get(_B,_D,fallback='')
+		except Exception as C:print(f"Error reading token: {C}");return''
+	def set_user_token(B,user_token,client_key):
+		C=client_key;A=user_token
+		if not C or B.client_key!=C:return
+		if not A:A='';print('user_token is empty')
+		B._save_user_token(A)
+	def _save_user_token(B,user_token):
 		try:
-			B=configparser.ConfigParser();B.read(A.config_path,encoding=_A);C=B.get(_B,_D,fallback='')
-			if not C:return''
-			return AuthUnit._decrypt(C,A.shift_key)
-		except Exception as D:print(f"Error reading token: {D}");return''
-	def save_user_token(A,user_token,client_key):
-		'Encrypt and save the user token.';D=client_key;C=user_token
-		if not C:return
-		if not D or A.client_key!=D:return
-		try:
-			A.token=C;B=configparser.ConfigParser()
-			if os.path.exists(A.config_path):B.read(A.config_path,encoding=_A)
-			if _B not in B:B.add_section(_B)
-			F=AuthUnit._encrypt(C,A.shift_key);B[_B][_D]=F
-			with open(A.config_path,'w',encoding=_A)as G:B.write(G)
-		except Exception as E:print(f"Error saving token: {E}");raise RuntimeError(f"Failed to save token: {E}")
-	def save_long_token(A,long_token):
-		C=long_token
-		try:
-			if not C or C=='null':A.long_token='';C=''
-			else:A.long_token=C
-			B=configparser.ConfigParser()
-			if os.path.exists(A.config_path):B.read(A.config_path,encoding=_A)
-			if _B not in B:B.add_section(_B)
-			B[_B][_E]=A.long_token
-			with open(A.config_path,'w',encoding=_A)as E:B.write(E)
-		except Exception as D:print(f"Error saving long token: {D}");raise RuntimeError(f"Failed to save long token: {D}")
-	def read_long_token(A):
-		if not os.path.exists(A.config_path):return''
-		try:B=configparser.ConfigParser();B.read(A.config_path,encoding=_A);return B.get(_B,_E,fallback='')
-		except Exception as C:print(f"Error reading long token: {C}");return''
+			A=configparser.ConfigParser()
+			if os.path.exists(B.config_path):A.read(B.config_path,encoding=_C,strict=_E)
+			if _B not in A:A.add_section(_B)
+			A[_B][_D]=user_token
+			with open(B.config_path,'w',encoding=_C)as D:A.write(D)
+		except Exception as C:print(f"Error saving token: {C}");raise RuntimeError(f"Failed to save token: {C}")
+	def set_long_token(B,long_token):
+		A=long_token
+		if not A or len(A)<50:return
+		B._save_user_token(A);B.client_key=''
 	def clear_user_token(B):
-		B.token='';B.long_token='';PromptServer.instance.send_sync(_F,{_G:'all'})
-		if not os.path.exists(B.config_path):return
-		try:
-			A=configparser.ConfigParser();A.read(B.config_path,encoding=_A)
-			if _B not in A:return
-			if _D not in A[_B]:return
-			A[_B][_D]='';A[_B][_E]=''
-			with open(B.config_path,'w',encoding=_A)as D:A.write(D)
-		except Exception as C:print(f"Error clearing token: {C}");raise RuntimeError(f"Failed to clear token: {C}")
+		PromptServer.instance.send_sync('cryptocat_clear_user_info',{'clear_key':'all'})
+		if os.path.exists(B.config_path):
+			try:
+				A=configparser.ConfigParser();A.read(B.config_path,encoding=_C)
+				if _B not in A:return
+				if _D not in A[_B]:return
+				A[_B][_D]=''
+				with open(B.config_path,'w',encoding=_C)as D:A.write(D)
+			except Exception as C:print(f"Error clearing token: {C}");raise RuntimeError(f"Failed to clear token: {C}")

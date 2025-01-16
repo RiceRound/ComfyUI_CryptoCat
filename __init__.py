@@ -54,7 +54,7 @@ async def auth_callback(request):
     if token and client_key:
         token = unquote(token)
         client_key = unquote(client_key)
-        AuthUnit().save_user_token(token, client_key)
+        AuthUnit().set_user_token(token, client_key)
     return aiohttp.web.json_response({"status": "success"}, status=200)
 
 
@@ -66,7 +66,7 @@ async def keygen(request):
         return aiohttp.web.json_response(
             {"error_msg": "template_id is required"}, status=500
         )
-    user_token, error_msg = AuthUnit().get_user_token()
+    user_token, error_msg, error_code = AuthUnit().get_user_token()
     if not user_token:
         return aiohttp.web.json_response({"error_msg": error_msg}, status=200)
     user_workflow = UploadWorkflow(user_token)
@@ -87,7 +87,7 @@ async def logout(request):
 async def set_long_token(request):
     data = await request.json()
     long_token = data.get("long_token", "")
-    AuthUnit().save_long_token(long_token)
+    AuthUnit().set_long_token(long_token)
     return aiohttp.web.json_response({"status": "success"}, status=200)
 
 

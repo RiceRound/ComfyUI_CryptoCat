@@ -67,9 +67,10 @@ class SaveCryptoNode:
         crypto_workflow.save_original_prompt(
             f"original_prompt_{template_id}.json", crypto_dir
         )
-        user_token, error_msg = AuthUnit().get_user_token()
+        user_token, error_msg, error_code = AuthUnit().get_user_token()
         if not user_token:
-            if error_msg == "no token found" or error_msg == "login failed":
+            print(f"crypto cat upload failed, {error_msg}")
+            if error_code == 401 or error_code == -3:
                 AuthUnit().login_dialog("输出CryptoCat加密工作流，请先完成登录")
             else:
                 PromptServer.instance.send_sync(

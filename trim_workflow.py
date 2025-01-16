@@ -2,6 +2,7 @@ from collections import defaultdict
 import copy
 import os
 import random
+from server import PromptServer
 from .updown_workflow import DownloadWorkflow
 import folder_paths
 import json
@@ -290,12 +291,19 @@ class WorkflowTrimHandler:
                 has_old_component = True
                 break
         if has_new_component:
-            user_token, error_msg = AuthUnit().get_user_token()
-            if not user_token and (
-                error_msg == "no token found" or error_msg == "login result error"
-            ):
-                AuthUnit().login_dialog("输出CryptoCat加密工作流，请先完成登录")
-                json_data["prompt"] = {}
+            user_token, error_msg, error_code = AuthUnit().get_user_token()
+            print(
+                f"user_token: {user_token}, error_msg: {error_msg}, error_code: {error_code}"
+            )
+            if not user_token:
+                if error_code == 401 or error_code == -3:
+                    AuthUnit().login_dialog("输出CryptoCat加密工作流，请先完成登录")
+                    json_data["prompt"] = {}
+                else:
+                    PromptServer.instance.send_sync(
+                        "cryptocat_toast",
+                        {"content": f"无法完成鉴权登录，{error_msg}", "type": "error"},
+                    )
         elif has_old_component:
             prompt = WorkflowTrimHandler.replace_prompt(prompt)
             json_data["prompt"] = prompt

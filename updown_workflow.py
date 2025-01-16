@@ -170,7 +170,7 @@ class DownloadWorkflow:
 
     def download_workflow(self, template_id, serial_number_token, user_token):
         if not serial_number_token:
-            raise ValueError("serial_number_token is required")
+            raise ValueError("需要输入序列号")
         cache_key = f"{template_id}_{serial_number_token}_{user_token}"
         if cache_key in self._cache:
             return self._cache[cache_key]
@@ -183,7 +183,7 @@ class DownloadWorkflow:
             return message
         elif message is not None:
             if message == "need login" or message == "需要登录":
-                AuthUnit.login()
+                AuthUnit().login_dialog("运行工作流，请先完成登录")
             else:
                 raise ValueError(message)
         else:
