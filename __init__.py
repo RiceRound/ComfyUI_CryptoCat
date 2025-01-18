@@ -66,11 +66,15 @@ async def keygen(request):
         return aiohttp.web.json_response(
             {"error_msg": "template_id is required"}, status=500
         )
+    expire_date = data.get("expire_date", "")
+    use_days = data.get("use_days", "")
     user_token, error_msg, error_code = AuthUnit().get_user_token()
     if not user_token:
         return aiohttp.web.json_response({"error_msg": error_msg}, status=200)
     user_workflow = UploadWorkflow(user_token)
-    serial_numbers = user_workflow.generate_serial_number(template_id, 1)
+    serial_numbers = user_workflow.generate_serial_number(
+        template_id, expire_date, use_days, 1
+    )
     if not serial_numbers:
         return aiohttp.web.json_response({"error_msg": "获取失败"}, status=200)
     serial_number = serial_numbers[0]

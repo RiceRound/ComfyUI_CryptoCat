@@ -83,7 +83,7 @@ class SaveCryptoNode:
         if not ret:
             print("crypto cat upload failed")
             return (ExecutionBlocker(None),)
-        serial_numbers = upload.generate_serial_number(template_id, 10)
+        serial_numbers = upload.generate_serial_number(template_id, count=10)
         if serial_numbers:
             sn_file_path = os.path.join(output_dir, f"serial_numbers_{template_id}.txt")
             with open(sn_file_path, "w", encoding="utf-8") as f:

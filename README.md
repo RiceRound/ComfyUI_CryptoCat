@@ -16,14 +16,17 @@ CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作�
 
 ### 安装和使用步骤
 1. **安装节点**
-   - 打开 ComfyUI\custom_Nodes\ 目录，克隆仓库到本地
-   - 或在 ComfyUI-Manager 中安装 ComfyUI Compression and Encryption Node 节点
+   - 在 ComfyUI-Manager中搜索RiceRound，找到ComfyUI Compression and Encryption Node节点
+  ![image](docs/install.png)
 
-2. **启动和配置**
+   - 你也可以下载文件夹放入ComfyUI\custom_nodes目录
+
+
+1. **启动和配置**
    - 启动 ComfyUI
    - 在菜单"高级"（advance）中找到 CryptoCat 目录
 
-3. **🔐使用方法**
+2. **🔐使用方法**
    - 加密组件和加密结束桥接一头一尾，控制工作流的加密区间
    - 随机种子会在服务端生成随机数，用于修补工作流封装后随机数不起效的情况
 

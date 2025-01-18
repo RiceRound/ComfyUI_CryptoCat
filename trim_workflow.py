@@ -123,7 +123,11 @@ class CryptoWorkflow:
             if not node:
                 return
             for output in node.get("outputs", []):
+                if not output or not output.get("links"):
+                    continue
                 for link in output.get("links", []):
+                    if not link:
+                        continue
                     if link is not None:
                         for workflow_link in self.workflow.get("links", []):
                             if workflow_link[0] == link:

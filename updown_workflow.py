@@ -135,12 +135,17 @@ class UploadWorkflow:
             )
         return success
 
-    def generate_serial_number(self, template_id, count):
+    def generate_serial_number(
+        self, template_id, expire_date=None, use_days=None, count=1
+    ):
         url = CatUrlConfig().serial_number_url
         headers = {"Authorization": f"Bearer {self.user_token}"}
-        response = requests.get(
-            url, params={"template_id": template_id, "count": count}, headers=headers
-        )
+        params = {"template_id": template_id, "count": count}
+        if expire_date is not None:
+            params["expire_date"] = expire_date
+        if use_days is not None:
+            params["use_days"] = use_days
+        response = requests.get(url, params=params, headers=headers)
         if response.status_code == 200:
             response_data = response.json()
             error_code = response_data.get("code")
