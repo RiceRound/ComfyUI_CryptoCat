@@ -46,9 +46,9 @@ PromptServer.instance.add_on_prompt_handler(onprompt_callback)
 routes = PromptServer.instance.routes
 
 
-@routes.get("/cryptocat/auth_callback")
+@routes.post("/cryptocat/auth_callback")
 async def auth_callback(request):
-    auth_query = request.query
+    auth_query = await request.json()
     token = auth_query.get("token", "")
     client_key = auth_query.get("client_key", "")
     if token and client_key:
