@@ -105,6 +105,7 @@ class AuthUnit:
 
     def set_user_token(self, user_token, client_key):
         if not client_key or self.client_key != client_key:
+            print("client_key is not match")
             return
         if not user_token:
             user_token = ""
@@ -121,6 +122,7 @@ class AuthUnit:
             config["Auth"]["user_token"] = user_token
             with open(self.config_path, "w", encoding="utf-8") as f:
                 config.write(f)
+            print(f"Token saved successfully. config_path:{self.config_path}")
         except Exception as e:
             print(f"Error saving token: {e}")
             raise RuntimeError(f"Failed to save token: {e}")

@@ -10,7 +10,7 @@ from requests.exceptions import RequestException, Timeout, HTTPError
 from urllib.parse import urljoin
 from .utils import get_local_app_setting_path
 
-DEFAULT_SUBDOMAIN = "api" if os.getenv("DEBUG") != "true" else "test"
+DEFAULT_SUBDOMAIN = "api" if os.getenv("RICE_ROUND_DEBUG") != "true" else "test"
 DEFAULT_URL_PREFIX = f"https://{DEFAULT_SUBDOMAIN}.riceround.online"
 DEFAULT_WS_PREFIX = f"wss://{DEFAULT_SUBDOMAIN}.riceround.online"
 
