@@ -1,4 +1,5 @@
 from functools import partial, wraps
+import logging
 import os
 from .trim_workflow import WorkflowTrimHandler
 from .crypto_node import (
@@ -70,12 +71,14 @@ async def keygen(request):
     use_days = data.get("use_days", "")
     user_token, error_msg, error_code = AuthUnit().get_user_token()
     if not user_token:
+        logging.error(f"crypto cat keygen failed: {error_msg}")
         return aiohttp.web.json_response({"error_msg": error_msg}, status=200)
     user_workflow = UploadWorkflow(user_token)
     serial_numbers = user_workflow.generate_serial_number(
         template_id, expire_date, use_days, 1
     )
     if not serial_numbers:
+        logging.error(f"crypto cat keygen failed: {error_msg}")
         return aiohttp.web.json_response({"error_msg": "获取失败"}, status=200)
     serial_number = serial_numbers[0]
     return aiohttp.web.json_response({"serial_number": serial_number}, status=200)
@@ -85,6 +88,18 @@ async def keygen(request):
 async def logout(request):
     AuthUnit().clear_user_token()
     return aiohttp.web.json_response({"status": "success"}, status=200)
+
+
+@routes.post("/cryptocat/login")
+async def login(request):
+    user_token, error_msg, error_code = AuthUnit().get_user_token()
+    if user_token and len(user_token) > 10 and error_code == 0:
+        return aiohttp.web.json_response({"error_msg": "已经登录，如果切换用户先登出"}, status=200)
+    else:
+        AuthUnit().login_dialog()
+        return aiohttp.web.json_response(
+            {"status": "success", "error_msg": "登录中..."}, status=200
+        )
 
 
 @routes.post("/cryptocat/set_long_token")
