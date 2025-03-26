@@ -1,7 +1,7 @@
 [project]
 name = "comfyui_cryptocat"
 description = "a lightweight open-source node for ComfyUI, designed to simplify workflows while providing encryption protection for them."
-version = "2.2.2"
+version = "2.2.3"
 license = {file = "LICENSE"}
 dependencies = ["aiohttp", "pyzipper", "websockets"]
 
