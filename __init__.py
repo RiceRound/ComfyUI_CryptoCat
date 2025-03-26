@@ -1,6 +1,8 @@
 from functools import partial, wraps
 import logging
 import os
+import shutil
+from custom_nodes.ComfyUI_CryptoCat.utils import get_local_app_setting_path
 from .trim_workflow import WorkflowTrimHandler
 from .crypto_node import (
     SaveCryptoNode,
@@ -84,9 +86,11 @@ async def keygen(request):
     return aiohttp.web.json_response({"serial_number": serial_number}, status=200)
 
 
-@routes.get("/cryptocat/logout")
+@routes.get("/cryptocat/clear")
 async def logout(request):
     AuthUnit().clear_user_token()
+    local_app_setting_path = get_local_app_setting_path()
+    shutil.rmtree(local_app_setting_path, ignore_errors=True)
     return aiohttp.web.json_response({"status": "success"}, status=200)
 
 
