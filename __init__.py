@@ -2,7 +2,7 @@ from functools import partial, wraps
 import logging
 import os
 import shutil
-from custom_nodes.ComfyUI_CryptoCat.utils import get_local_app_setting_path
+from .utils import get_local_app_setting_path
 from .trim_workflow import WorkflowTrimHandler
 from .crypto_node import (
     SaveCryptoNode,
