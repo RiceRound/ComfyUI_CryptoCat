@@ -117,6 +117,10 @@ class AuthUnit:
             config = configparser.ConfigParser()
             if os.path.exists(self.config_path):
                 config.read(self.config_path, encoding="utf-8")
+            else:
+                local_app_path = get_local_app_setting_path()
+                if not os.path.exists(local_app_path):
+                    local_app_path.mkdir(parents=True, exist_ok=True)
             if "Auth" not in config:
                 config.add_section("Auth")
             config["Auth"]["user_token"] = user_token
