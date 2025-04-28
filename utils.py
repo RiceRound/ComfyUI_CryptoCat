@@ -11,6 +11,7 @@ import platform
 import subprocess
 import random
 import string
+import socket
 
 
 def pil2tensor(images: Image.Image | list[Image.Image]) -> torch.Tensor:
@@ -29,45 +30,40 @@ def pil2tensor(images: Image.Image | list[Image.Image]) -> torch.Tensor:
         return torch.cat([single_pil2tensor(img) for img in images], dim=0)
 
 
-def calculate_machine_id():
-    "\n    获取跨平台的机器唯一标识符，类似于 gopsutil 的 HostID\n"
-    system = platform.system()
-    if system == "Linux":
-        try:
-            with open("/etc/machine-id", "r") as f:
-                return f.read().strip()
-        except FileNotFoundError:
-            try:
-                with open("/var/lib/dbus/machine-id", "r") as f:
-                    return f.read().strip()
-            except FileNotFoundError:
-                pass
-        try:
-            output = subprocess.check_output(["cat", "/sys/class/dmi/id/product_uuid"])
-            return output.decode().strip()
-        except Exception:
-            pass
-    elif system == "Windows":
-        try:
-            import winreg
+def _calculate_machine_id():
+    "\n    获取跨平台的机器唯一标识码，优化对云平台和虚拟机的支持。\n    主要通过CPU信息、MAC地址等硬件特征来区分不同机器。\n    在Linux平台上额外添加随机数以区分相同硬件的云主机。\n"
+    import platform
+    import socket
+    import uuid
+    import hashlib
 
-            reg_key = "SOFTWARE\\Microsoft\\Cryptography"
-            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, reg_key) as key:
-                machine_guid, _ = winreg.QueryValueEx(key, "MachineGuid")
-                return machine_guid
-        except Exception:
-            pass
-    elif system == "Darwin":
+    def get_cpu_info():
+        "获取CPU信息"
         try:
-            output = subprocess.check_output(
-                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"]
-            )
-            for line in output.decode().splitlines():
-                if "IOPlatformUUID" in line:
-                    return line.split("=")[-1].strip().strip('"')
-        except Exception:
-            pass
-    return str(uuid.getnode())
+            if platform.system() == "Windows":
+                return platform.processor()
+            else:
+                return platform.machine()
+        except:
+            return ""
+
+    def get_mac_addresses():
+        "获取所有网卡的MAC地址"
+        try:
+            from uuid import getnode
+
+            mac = getnode()
+            return str(mac) if mac != 0 else ""
+        except:
+            return ""
+
+    system_info = [get_cpu_info(), get_mac_addresses(), platform.machine()]
+    if platform.system() == "Linux":
+        system_info.append(str(uuid.uuid4()))
+    valid_info = list(filter(None, system_info))
+    if not valid_info:
+        return str(uuid.uuid4())
+    return "".join(valid_info)
 
 
 def normalize_machine_id(machine_id: str) -> str:
@@ -101,7 +97,7 @@ def get_machine_id() -> str:
             config.read(config_file, encoding="utf-8")
             if "Machine" in config and "machine_id" in config["Machine"]:
                 return config["Machine"]["machine_id"]
-        original_host_id = calculate_machine_id()
+        original_host_id = _calculate_machine_id()
         machine_id = normalize_machine_id(original_host_id)
         if "Machine" not in config:
             config.add_section("Machine")

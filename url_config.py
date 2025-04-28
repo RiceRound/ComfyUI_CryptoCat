@@ -50,7 +50,7 @@ class CatUrlConfig:
 
     @property
     def login_api_url(self):
-        return self.get_server_url("/api/workflow/get_info")
+        return self.get_server_url("/api/cryptocat/get_info")
 
     @property
     def workflow_url(self):
