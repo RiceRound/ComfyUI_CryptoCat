@@ -1,61 +1,38 @@
-[Read English](ENGLISH_README.md)
+# CryptoCat for ComfyUI
 
-# CryptoCat: ComfyUI压缩加密节点
+CryptoCat 将工作流中的节点封装到 CryptoCat Server，并生成一个可用序列号运行的 ComfyUI 工作流。
 
-## 简介
-CryptoCat是一个小巧的ComfyUI开源节点，它的作用在于简化工作流，同时给工作流提供加密保护。
+## 安装
 
-![image](docs/image1.png)
+将 `ComfyUI_CryptoCat` 放到 ComfyUI 的 `custom_nodes` 目录。用启动 ComfyUI 的同一个 Python 安装 `requirements.txt`，然后重启 ComfyUI。
 
-## 应用场景
-- 流程简化：可以大幅度简化工作流。
-- 加密授权：可以保护工作流里的一些核心思路。
+```sh
+python -m pip install -r ComfyUI/custom_nodes/ComfyUI_CryptoCat/requirements.txt
+```
 
-## 快速开始
-你可以在这里看到一个简单的 [Workflow Demo](demo/original.json)
+在加密组件或解密组件上点击「CryptoCat 设置」，填写你的 CryptoCat Server 地址，例如 `https://cryptocat.example.com`。也可通过 ComfyUI 的扩展菜单打开面板。部署时可用环境变量 `CRYPTOCAT_API_URL` 固定服务地址。公开发行包需要自行填写服务地址。
 
-### 安装和使用步骤
-1. **安装节点**
-   - 在 ComfyUI-Manager中搜索RiceRound，找到CryptoCat节点
-  ![image](docs/install.png)
+发布者在服务端的「插件接入」页使用手机验证码登录并生成发布 Token，然后粘贴到插件面板。使用者填写服务地址和解密组件中的序列号即可运行。移除发布 Token 会保留机器 ID 和已有激活。
 
-   - 你也可以下载文件夹放入ComfyUI\custom_nodes目录
+## 发布与使用
 
+1. 在主画布放置一个「加密组件」和一个「加密结束桥接」。将使用者可修改的输入同时连接到加密组件和需要该输入的内部节点。
+2. 将待封装的结果接到桥接，再从桥接连接相应的输出节点。桥接支持一路结果，可分接到接受该类型的多个输出节点。
+3. 从画布排队发布。同 ID 模板可在弹窗确认覆盖，也可以在设置里启用自动覆盖。
+4. ComfyUI 输出目录会生成 `cryptocat_<模板ID>.json` 和 `serial_numbers_<模板ID>.txt`。打开生成的工作流，在解密组件填写序列号并排队。也可在面板按模板 ID 补发序列号。
 
-1. **启动和配置**
-   - 启动 ComfyUI
-   - 在菜单"高级"（advance）中找到 CryptoCat 目录
+图片可接 `SaveImage` 或 `PreviewImage`。原生视频可将 `CreateVideo` 的 `VIDEO` 接入桥接，再接 `SaveVideo`。图像帧可经桥接接入 `SaveWEBM`、`SaveAnimatedWEBP` 或已安装的 Video Helper Suite `VHS_VideoCombine`。容器、编码、帧率和文件前缀仍在对应输出节点中设置。运行加密工作流需要安装原工作流使用的节点和模型。
 
-2. **🔐使用方法**
-   - 加密组件和加密结束桥接一头一尾，控制工作流的加密区间
-   - 随机种子会在服务端生成随机数，用于修补工作流封装后随机数不起效的情况
+发布支持 ComfyUI 的 0.4 数组连线和 1.0 对象连线格式。加密组件负责发布，若需预览原始工作流，可选中输出节点后使用 ComfyUI 的选定节点排队功能。公开工作流会保留可编辑的输入和输出节点及其依赖。
 
-> ☘️ 解密组件无需手动添加 - 加密后系统会在output文件夹自动生成包含解密组件的工作流
+[图像工作流示例](example_workflows/simple1.json)
 
-> ☘️ 加密时会自动生成10组序列号，用户首次使用时会与硬件信息绑定，不够可以从设置里面找到算号器生成
+## English
 
-  ## ⚠️易错强调
+Install the folder under `ComfyUI/custom_nodes` and install the requirements using ComfyUI's Python. Open the CryptoCat settings from a CryptoCat node or the Extensions menu. Set your CryptoCat Server URL and, to publish, paste a publisher token from the server's plugin page.
 
+Keep public workflow inputs connected to the encryption node. Connect the private result to the bridge, and connect the bridge to an output such as Save Image, Save Video, or a frame-based video output. Queue the workflow to publish, then open the generated JSON and enter a serial number in the decode node. ComfyUI writes the generated workflow and serial numbers to its output folder.
 
- ![image](docs/warn.png)
+## License
 
-> ⚠️加密组件和加密结束桥接一头一尾！
-
-> ⚠️输出节点连接不能遗漏！！
-
-
-
-
-## 贡献指南
-欢迎对CryptoCat项目做出贡献！你可以通过提交Pull Request或开设Issue来提出新功能建议或报告问题。
-
-## 许可证
-本项目遵循MIT许可证。有关详细信息，请参阅LICENSE文件。
-
-## 联系方式
-Email：<hzxhzx321@gmail.com>
-
-![image](docs/wechat.jpg)
-
----
-CryptoCat © 2024. All Rights Reserved.
+[MIT](LICENSE)

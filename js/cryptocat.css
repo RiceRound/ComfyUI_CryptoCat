@@ -1,0 +1,35 @@
+.cryptocat-dialog {
+    box-sizing: border-box;
+    width: min(560px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+    background: var(--comfy-menu-bg, #262626);
+    color: var(--fg-color, #fff);
+    border: 1px solid var(--border-color, #777);
+    border-radius: 12px;
+    padding: 16px 20px;
+}
+
+.cryptocat-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.cryptocat-dialog header, .cryptocat-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cryptocat-dialog header { justify-content: space-between; }
+.cryptocat-dialog h2, .cryptocat-dialog h3 { margin: 8px 0; }
+.cryptocat-dialog form, .cryptocat-dialog label { display: grid; gap: 8px; }
+.cryptocat-dialog label:has(input[type="checkbox"]) { display: flex; flex-direction: row-reverse; justify-content: flex-end; }
+.cryptocat-dialog input, .cryptocat-dialog textarea, .cryptocat-dialog button {
+    min-width: 0;
+    box-sizing: border-box;
+    border: 1px solid var(--border-color, #777);
+    border-radius: 6px;
+    padding: 6px 9px;
+    background: var(--comfy-input-bg, #171717);
+    color: inherit;
+}
+.cryptocat-dialog button { cursor: pointer; }
+.cryptocat-dialog button:disabled { opacity: .55; cursor: default; }
+.cryptocat-dialog a { color: inherit; text-decoration: underline; }
+.cryptocat-dialog [role="status"] { margin: 0; overflow-wrap: anywhere; }
+.cryptocat-dialog [role="status"]:empty { display: none; }
+.cryptocat-dialog [hidden] { display: none; }
+.cryptocat-dialog textarea { width: 100%; resize: vertical; }
+.cryptocat-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; }
