@@ -1,122 +1,197 @@
-from functools import partial, wraps
-import logging
+import asyncio
 import os
-import shutil
-from .utils import get_local_app_setting_path
-from .trim_workflow import WorkflowTrimHandler
-from .crypto_node import (
-    SaveCryptoNode,
-    RandomSeedNode,
-    SaveCryptoBridgeNode,
-    DecodeCryptoNode,
-)
-from .crypto_node_old import ExcuteCryptoNode, CryptoCatImage
+import random
+
+from aiohttp import web
+from server import PromptServer
+
+from .client import CryptoCatClient, ServiceError, web_login
+from .crypto_node import DecodeCryptoNode, OverwriteDialogs, RandomSeedNode, SaveCryptoBridgeNode, SaveCryptoNode
+from .crypto_node_old import CryptoCatImage, ExcuteCryptoNode
+from .file_compressor import FileCompressor
+from .settings import auto_overwrite, clear_token, connection, normalize_url, read_settings, save_auto_overwrite, save_connection
+from .workflow import SAVE
+
 
 NODE_CLASS_MAPPINGS = {
     "SaveCryptoNode": SaveCryptoNode,
-    "ExcuteCryptoNode": ExcuteCryptoNode,
-    "RandomSeedNode": RandomSeedNode,
-    "CryptoCatImage": CryptoCatImage,
     "SaveCryptoBridgeNode": SaveCryptoBridgeNode,
     "DecodeCryptoNode": DecodeCryptoNode,
+    "RandomSeedNode": RandomSeedNode,
+    "ExcuteCryptoNode": ExcuteCryptoNode,
+    "CryptoCatImage": CryptoCatImage,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SaveCryptoNode": "加密组件",
-    "RandomSeedNode": "随机种子",
     "SaveCryptoBridgeNode": "加密结束桥接",
     "DecodeCryptoNode": "解密组件",
+    "RandomSeedNode": "随机种子",
     "ExcuteCryptoNode": "OutputCrypto",
     "CryptoCatImage": "CryptoCatImage",
 }
 WEB_DIRECTORY = "./js"
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAMES_MAPPINGS", "WEB_DIRECTORY"]
-from server import PromptServer
-import aiohttp
-
-workspace_path = os.path.join(os.path.dirname(__file__))
-dist_path = os.path.join(workspace_path, "static")
-if os.path.exists(dist_path):
-    PromptServer.instance.app.add_routes(
-        [aiohttp.web.static("/cryptocat/static", dist_path)]
-    )
-from urllib.parse import unquote
-from .auth_unit import AuthUnit
-from .updown_workflow import UploadWorkflow, UserWorkflowSetting
-
-handler_instance = WorkflowTrimHandler()
-onprompt_callback = partial(handler_instance.onprompt_handler)
-PromptServer.instance.add_on_prompt_handler(onprompt_callback)
-routes = PromptServer.instance.routes
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
 
-@routes.post("/cryptocat/auth_callback")
-async def auth_callback(request):
-    auth_query = await request.json()
-    token = auth_query.get("token", "")
-    client_key = auth_query.get("client_key", "")
-    if token and client_key:
-        token = unquote(token)
-        client_key = unquote(client_key)
-        AuthUnit().set_user_token(token, client_key)
-    return aiohttp.web.json_response({"status": "success"}, status=200)
+def prepare_prompt(data):
+    prompt = data.get("prompt") or {}
+    publishers = [node_id for node_id, node in prompt.items() if node.get("class_type") == SAVE]
+    if publishers:
+        if "partial_execution_targets" not in data:
+            data["partial_execution_targets"] = publishers
+        return data
+    for node_id, node in list(prompt.items()):
+        if node.get("class_type") != "ExcuteCryptoNode":
+            continue
+        injected = FileCompressor.decompress_from_json(node["inputs"]["crypto_file_path"], "19040822")
+        if not injected:
+            raise ValueError("无法读取旧版 CryptoCat 工作流文件")
+        output = injected.pop("output_images_ids")
+        del prompt[node_id]
+        for item in prompt.values():
+            if item["class_type"] == "CryptoCatImage" and item["inputs"].get("images", [None])[0] == node_id:
+                item["inputs"]["images"] = output
+        for item in injected.values():
+            if item.get("class_type") == "RandomSeedNode":
+                item["inputs"]["is_changed"] = random.randint(0, 999999)
+        prompt.update(injected)
+        break
+    return data
 
 
-@routes.post("/cryptocat/keygen")
-async def keygen(request):
+server = PromptServer.instance
+server.add_on_prompt_handler(prepare_prompt)
+routes = server.routes
+
+
+def reply(payload, status=200):
+    return web.json_response(payload, status=status, headers={"Cache-Control": "no-store"})
+
+
+def failure(exc):
+    return reply({"error_msg": str(exc)}, exc.status if isinstance(exc, ServiceError) else 400)
+
+
+def check_request_origin(request):
+    fetch_site = request.headers.get("Sec-Fetch-Site")
+    origin = request.headers.get("Origin")
+    # Browsers set same-origin for requests made through the public reverse-proxy URL.
+    if fetch_site in {"cross-site", "same-site"} or (
+        origin is not None and fetch_site != "same-origin" and origin != f"{request.scheme}://{request.host}"
+    ):
+        raise ServiceError("请求来源无效", 403)
+
+
+async def read_json(request):
+    check_request_origin(request)
+    if request.content_type != "application/json":
+        raise ServiceError("请提交 JSON 请求", 415)
     data = await request.json()
-    template_id = data.get("template_id", "").strip()
-    if not template_id or len(template_id) != 32:
-        return aiohttp.web.json_response(
-            {"error_msg": "template_id is required"}, status=500
-        )
-    expire_date = data.get("expire_date", "")
-    use_days = data.get("use_days", "")
-    user_token, error_msg, error_code = AuthUnit().get_user_token()
-    if not user_token:
-        logging.error(f"crypto cat keygen failed: {error_msg}")
-        return aiohttp.web.json_response({"error_msg": error_msg}, status=200)
-    user_workflow = UploadWorkflow(user_token)
-    serial_numbers = user_workflow.generate_serial_number(
-        template_id, expire_date, use_days, 1
-    )
-    if not serial_numbers:
-        logging.error(f"crypto cat keygen failed: {error_msg}")
-        return aiohttp.web.json_response({"error_msg": "获取失败"}, status=200)
-    serial_number = serial_numbers[0]
-    return aiohttp.web.json_response({"serial_number": serial_number}, status=200)
+    if not isinstance(data, dict):
+        raise ValueError("请求格式无效")
+    return data
 
 
-@routes.get("/cryptocat/clear")
+def status():
+    config = read_settings()
+    url, token = connection(config)
+    return {"url": url, "url_locked": bool(os.environ.get("CRYPTOCAT_API_URL", "").strip()),
+            "has_token": bool(token), "auto_overwrite": auto_overwrite(config)}
+
+
+@routes.get("/cryptocat/config")
+async def get_config(request):
+    try:
+        return reply(status())
+    except ValueError as exc:
+        return failure(exc)
+
+
+@routes.post("/cryptocat/config")
+async def configure(request):
+    try:
+        data = await read_json(request)
+        url, token, overwrite = data.get("url"), data.get("token", ""), data.get("auto_overwrite")
+        if "auto_overwrite" in data and not isinstance(overwrite, bool):
+            raise ValueError("覆盖选项必须为布尔值")
+        if data.keys() == {"auto_overwrite"}:
+            save_auto_overwrite(overwrite)
+            return reply(status())
+        if not isinstance(url, str) or not isinstance(token, str):
+            raise ValueError("请检查服务地址、登录 Token 和覆盖选项")
+        token = token.strip()
+        if len(token) > 4096 or any(char.isspace() for char in token):
+            raise ValueError("登录 Token 格式无效")
+        url = normalize_url(url)
+        current = read_settings()
+        current_url, current_token = connection(current)
+        if status()["url_locked"] and url != current_url:
+            raise ValueError("当前服务地址由 CRYPTOCAT_API_URL 指定")
+        if not token and url == current_url:
+            token = current_token
+        publisher = await asyncio.to_thread(CryptoCatClient(url, token).publisher) if token else None
+        save_connection(url, token, overwrite)
+        return reply({**status(), "publisher": publisher})
+    except ValueError as exc:
+        return failure(exc)
+
+
+@routes.post("/cryptocat/clear")
 async def logout(request):
-    AuthUnit().clear_user_token()
-    local_app_setting_path = get_local_app_setting_path()
-    shutil.rmtree(local_app_setting_path, ignore_errors=True)
-    return aiohttp.web.json_response({"status": "success"}, status=200)
+    try:
+        await read_json(request)
+        clear_token()
+        return reply(status())
+    except ValueError as exc:
+        return failure(exc)
 
 
-@routes.post("/cryptocat/login")
+@routes.post("/cryptocat/login/{action:challenge|sms|verify}")
 async def login(request):
-    user_token, error_msg, error_code = AuthUnit().get_user_token()
-    if user_token and len(user_token) > 10 and error_code == 0:
-        return aiohttp.web.json_response({"error_msg": "已经登录，如果切换用户先登出"}, status=200)
-    else:
-        AuthUnit().login_dialog()
-        return aiohttp.web.json_response(
-            {"status": "success", "error_msg": "登录中..."}, status=200
-        )
+    try:
+        data = await read_json(request)
+        action = request.match_info["action"]
+        url, overwrite = data.get("url"), data.get("auto_overwrite")
+        if not isinstance(url, str) or ("auto_overwrite" in data and not isinstance(overwrite, bool)):
+            raise ValueError("请检查服务地址和覆盖选项")
+        url = normalize_url(url)
+        current = status()
+        if current["url_locked"] and current["url"] != url:
+            raise ValueError("当前服务地址由 CRYPTOCAT_API_URL 指定")
+        fields = ("phone", "code", "challenge_id", "challenge_answer")
+        payload = {key: data[key] for key in fields if key in data}
+        result, code = await asyncio.to_thread(web_login, url, action, payload)
+        if code != 200 or action != "verify":
+            return reply(result, code)
+        token = result.get("token")
+        if not isinstance(token, str) or not token or len(token) > 4096 or any(char.isspace() for char in token):
+            raise ServiceError("登录服务未返回有效的登录 Token", 502)
+        publisher = await asyncio.to_thread(CryptoCatClient(url, token).publisher)
+        save_connection(url, token, overwrite)
+        return reply({**status(), "publisher": publisher, "phone": result.get("phone")})
+    except ValueError as exc:
+        return failure(exc)
 
 
-@routes.post("/cryptocat/set_long_token")
-async def set_long_token(request):
-    data = await request.json()
-    long_token = data.get("long_token", "")
-    AuthUnit().set_long_token(long_token)
-    return aiohttp.web.json_response({"status": "success"}, status=200)
+@routes.get("/cryptocat/workflows")
+async def workflows(request):
+    try:
+        check_request_origin(request)
+        client = CryptoCatClient(*connection(read_settings()))
+        items = await asyncio.to_thread(client.recent_workflows)
+        return reply({"items": items, "url": client.url})
+    except ValueError as exc:
+        return failure(exc)
 
 
-@routes.post("/cryptocat/set_auto_overwrite")
-async def set_auto_overwrite(request):
-    data = await request.json()
-    auto_overwrite = data.get("auto_overwrite")
-    UserWorkflowSetting().set_auto_overwrite(auto_overwrite)
-    return aiohttp.web.json_response({"status": "success"}, status=200)
+@routes.post("/cryptocat/message")
+async def overwrite_reply(request):
+    try:
+        data = await read_json(request)
+        if (not isinstance(data.get("id"), str) or not isinstance(data.get("client_id"), str)
+                or not isinstance(data.get("confirmed"), bool)):
+            raise ValueError("覆盖确认数据无效")
+        accepted = OverwriteDialogs.respond(data["id"], data["client_id"], data["confirmed"])
+        return reply({"accepted": accepted}, 200 if accepted else 409)
+    except ValueError as exc:
+        return failure(exc)

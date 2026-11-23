@@ -1,24 +1,39 @@
-name: Publish to Comfy registry
+name: Publish to Comfy Registry
+
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-    paths:
-      - "pyproject.toml"
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
-  issues: write
+  contents: read
 
 jobs:
   publish-node:
-    name: Publish Custom Node to registry
+    if: github.repository == 'RiceRound/ComfyUI_CryptoCat' && github.event.created && !github.event.deleted
     runs-on: ubuntu-latest
-    if: ${{ github.repository_owner == 'riceround' }}
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - name: Publish Custom Node
-        uses: Comfy-Org/publish-node-action@v1
+      - name: Check out the release tag
+        uses: actions/checkout@v7
         with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify the release version
+        run: |
+          python3 - <<'PY'
+          import os
+          import tomllib
+
+          with open("pyproject.toml", "rb") as metadata:
+              version = tomllib.load(metadata)["project"]["version"]
+          tag = os.environ["GITHUB_REF_NAME"]
+          if tag != f"v{version}":
+              raise SystemExit(f"Release tag {tag!r} does not match project version {version!r}.")
+          PY
+
+      - name: Publish custom node
+        uses: Comfy-Org/publish-node-action@d2366e7abb6ab16f3bb03e3520ae25c8cf749bc9
+        with:
+          skip_checkout: 'true'
           personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}

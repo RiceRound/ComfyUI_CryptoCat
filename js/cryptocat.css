@@ -1,0 +1,259 @@
+.cryptocat-dialog {
+    box-sizing: border-box;
+    width: min(560px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+    background: var(--comfy-menu-bg, #262626);
+    color: var(--fg-color, #fff);
+    border: 1px solid var(--border-color, #777);
+    border-radius: 12px;
+    padding: 16px 20px;
+}
+
+.cryptocat-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.cryptocat-dialog header, .cryptocat-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cryptocat-dialog header { justify-content: space-between; }
+.cryptocat-dialog h2, .cryptocat-dialog h3 { margin: 8px 0; }
+.cryptocat-dialog form, .cryptocat-dialog label { display: grid; gap: 8px; }
+.cryptocat-dialog input, .cryptocat-dialog button {
+    min-width: 0;
+    box-sizing: border-box;
+    border: 1px solid var(--border-color, #777);
+    border-radius: 6px;
+    padding: 6px 9px;
+    background: var(--comfy-input-bg, #171717);
+    color: inherit;
+}
+.cryptocat-dialog button { cursor: pointer; }
+.cryptocat-dialog .cryptocat-primary {
+    display: inline-block;
+    padding: 6px 9px;
+    border-radius: 6px;
+    background: #28567c;
+    color: #fff;
+}
+.cryptocat-dialog button:disabled { opacity: .55; cursor: default; }
+.cryptocat-dialog a { color: inherit; text-decoration: underline; }
+.cryptocat-dialog [role="status"] { margin: 0; overflow-wrap: anywhere; }
+.cryptocat-dialog [role="status"]:empty { display: none; }
+.cryptocat-dialog [hidden] { display: none; }
+
+.cryptocat-published {
+    --cryptocat-success: color-mix(in srgb, var(--success, #2ea775) 78%, currentColor);
+    --cryptocat-action: var(--primary-background, var(--primary, #28567c));
+    width: min(510px, calc(100vw - 24px));
+    padding: 18px clamp(12px, 4vw, 22px);
+    font-size: 14px;
+}
+.cryptocat-published header { position: relative; justify-content: center; padding: 0 34px; }
+.cryptocat-published header button { position: absolute; top: 0; right: 0; }
+.cryptocat-published header h2 { display: grid; justify-items: center; gap: 8px; margin: 0 0 14px; font-size: 20px; }
+.cryptocat-published svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+}
+.cryptocat-published-check {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--cryptocat-success) 15%, transparent);
+    color: var(--cryptocat-success);
+}
+.cryptocat-published-check svg { width: 23px; height: 23px; }
+.cryptocat-published-file {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--comfy-input-bg, #202020);
+    border: 1px solid var(--border-color, #777);
+}
+.cryptocat-published-file > span { color: color-mix(in srgb, currentColor 75%, transparent); font-size: 13px; }
+.cryptocat-published-file > strong { overflow-wrap: anywhere; margin-bottom: 4px; }
+.cryptocat-published-path { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.cryptocat-published-path input, .cryptocat-published-path button { font: inherit; }
+.cryptocat-published-path button, .cryptocat-dialog .cryptocat-published-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.cryptocat-published-file [role="status"] { color: var(--cryptocat-success); font-size: 13px; }
+.cryptocat-published-guide { margin: 12px 0; text-align: center; line-height: 1.5; }
+.cryptocat-published .cryptocat-actions { justify-content: center; }
+.cryptocat-dialog .cryptocat-published-link {
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: var(--cryptocat-action);
+    color: var(--primary-foreground, #fff);
+    font-weight: 600;
+    text-decoration: none;
+}
+.cryptocat-published :focus-visible { outline: 2px solid var(--cryptocat-action); outline-offset: 2px; }
+
+.cryptocat-connection { display: grid; gap: 8px; }
+.cryptocat-address-row { display: flex; align-items: center; gap: 6px; }
+.cryptocat-address {
+    color: color-mix(in srgb, currentColor 68%, transparent);
+    overflow-wrap: anywhere;
+    user-select: text;
+}
+.cryptocat-dialog .cryptocat-edit-address {
+    flex: none;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    font-size: 16px;
+}
+.cryptocat-dialog .cryptocat-edit-address:hover:not(:disabled) {
+    background: var(--comfy-input-bg, #171717);
+    border-color: var(--border-color, #777);
+}
+
+.cryptocat-account {
+    justify-content: space-between;
+    gap: 12px;
+    margin: 8px 0 16px;
+    padding: 12px;
+    border: 1px solid var(--border-color, #777);
+    border-radius: 8px;
+}
+.cryptocat-login-required {
+    background: #402410;
+    border-color: #d7792d;
+    color: #ffd3a3;
+    font-weight: 700;
+}
+.cryptocat-dialog .cryptocat-login-required button {
+    min-height: 40px;
+    padding: 8px 16px;
+    background: #ffb363;
+    border-color: #ffb363;
+    color: #281604;
+    font-weight: 700;
+}
+.cryptocat-dialog .cryptocat-login-required button:hover:not(:disabled) { background: #ffca90; }
+.cryptocat-settings, .cryptocat-overwrite-dialog {
+    --cryptocat-accent: color-mix(in srgb, var(--primary-background, var(--primary, #5d9dff)) 76%, currentColor);
+    font-size: 14px;
+}
+.cryptocat-settings h2, .cryptocat-overwrite-dialog h2 { font-size: 20px; line-height: 1.3; }
+.cryptocat-settings h3 { font-size: 15px; }
+.cryptocat-settings label { font-weight: 600; }
+.cryptocat-settings input, .cryptocat-settings button, .cryptocat-overwrite-dialog button { font: inherit; }
+.cryptocat-settings input[type="text"] { width: 100%; min-height: 36px; }
+.cryptocat-settings :focus-visible, .cryptocat-overwrite-dialog :focus-visible {
+    outline: 2px solid var(--cryptocat-accent);
+    outline-offset: 2px;
+}
+.cryptocat-workflow-settings {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--cryptocat-accent) 28%, var(--border-color, #777));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--primary-background, var(--primary, #5d9dff)) 6%, var(--comfy-menu-bg, #262626));
+}
+.cryptocat-workflow-settings h3 { color: var(--cryptocat-accent); margin: 0 0 5px; }
+.cryptocat-workflow-settings small { opacity: .78; }
+.cryptocat-template-row {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) repeat(2, 36px);
+    align-items: center;
+    gap: 6px;
+}
+.cryptocat-decode-template-row { grid-template-columns: minmax(0, 1fr) 36px; }
+.cryptocat-decode-template-row svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+}
+.cryptocat-dialog .cryptocat-template-row button {
+    display: grid;
+    height: 36px;
+    place-items: center;
+    padding: 0;
+    font-size: 16px;
+}
+.cryptocat-template-row button:hover { border-color: var(--cryptocat-accent); }
+.cryptocat-settings .cryptocat-overwrite-toggle {
+    display: flex;
+    align-items: center;
+    margin-top: 5px;
+    cursor: pointer;
+}
+.cryptocat-overwrite-toggle input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--cryptocat-accent);
+}
+.cryptocat-overwrite-dialog {
+    width: min(520px, calc(100vw - 24px));
+    padding: 14px clamp(12px, 4vw, 20px);
+}
+.cryptocat-overwrite-dialog header { flex-wrap: nowrap; margin-bottom: 10px; }
+.cryptocat-overwrite-dialog header button { flex: none; }
+.cryptocat-overwrite-dialog form { gap: 12px; }
+.cryptocat-overwrite-choices { min-width: 0; margin: 0; padding: 0; border: 0; }
+.cryptocat-overwrite-choices legend {
+    margin-bottom: 7px;
+    padding: 0;
+    color: var(--cryptocat-accent);
+    font-weight: 600;
+}
+.cryptocat-overwrite-list {
+    max-height: min(340px, 48dvh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    border: 1px solid var(--border-color, #777);
+    border-radius: 8px;
+    padding: 4px;
+    background: color-mix(in srgb, var(--cryptocat-accent) 5%, var(--comfy-menu-bg, #262626));
+}
+.cryptocat-overwrite-list label {
+    grid-template-columns: 16px minmax(0, 1fr);
+    align-items: center;
+    min-height: 34px;
+    overflow-wrap: anywhere;
+    padding: 5px 7px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1.45;
+}
+.cryptocat-overwrite-list label:hover {
+    background: color-mix(in srgb, var(--cryptocat-accent) 9%, transparent);
+}
+.cryptocat-overwrite-list label:has(input:checked) {
+    background: color-mix(in srgb, var(--cryptocat-accent) 16%, transparent);
+    border-color: color-mix(in srgb, var(--cryptocat-accent) 60%, transparent);
+}
+.cryptocat-overwrite-list input { width: 15px; height: 15px; margin: 0; accent-color: var(--cryptocat-accent); }
+.cryptocat-overwrite-id { font: 13px/1.45 ui-monospace, Consolas, monospace; }
+.cryptocat-overwrite-name { font-size: 13px; color: color-mix(in srgb, currentColor 78%, transparent); }
+.cryptocat-overwrite-actions { justify-content: flex-end; }
+.cryptocat-overwrite-actions button { min-height: 36px; padding-inline: 12px; }
+.cryptocat-overwrite-dialog .cryptocat-overwrite-confirm:not(:disabled) {
+    border-color: var(--cryptocat-accent);
+    background: color-mix(in srgb, var(--cryptocat-accent) 20%, var(--comfy-menu-bg, #262626));
+    font-weight: 600;
+}

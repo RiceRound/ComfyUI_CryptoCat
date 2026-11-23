@@ -1,15 +1,14 @@
 [project]
 name = "comfyui_cryptocat"
-description = "a lightweight open-source node for ComfyUI, designed to simplify workflows while providing encryption protection for them."
-version = "2.4.0"
+description = "Publish and run serial-activated ComfyUI workflows with CryptoCat Server."
+version = "2.5.0"
 license = {file = "LICENSE"}
-dependencies = ["aiohttp", "pyzipper", "websockets"]
+dependencies = ["aiohttp", "pyzipper", "requests"]
 
 [project.urls]
 Repository = "https://github.com/RiceRound/ComfyUI_CryptoCat"
-#  Used by Comfy Registry https://comfyregistry.org
+"Bug Tracker" = "https://github.com/RiceRound/ComfyUI_CryptoCat/issues"
 
 [tool.comfy]
 PublisherId = "riceround"
 DisplayName = "ComfyUI_CryptoCat"
-Icon = "https://www.riceround.online/CryptoCat.svg"
